@@ -11,7 +11,7 @@ permissions:
 
 jobs:
   build:
-    name: Assemble debug APK
+    name: Assemble release APK
     runs-on: ubuntu-latest
 
     steps:
@@ -26,8 +26,8 @@ jobs:
 
       - name: Set up Android SDK
         run: |
-          # ubuntu-latest ships with the Android SDK preinstalled; no setup action needed
-          # (android-actions/setup-android@v3 fails on the removed "tools" package).
+          # ubuntu-latest ships with the Android SDK preinstalled; no setup action
+          # needed (android-actions/setup-android@v3 fails on the removed "tools").
           echo "ANDROID_HOME=$ANDROID_HOME"
           echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT"
           yes | sdkmanager --licenses > /dev/null 2>&1 || true
@@ -35,11 +35,30 @@ jobs:
           ls "$ANDROID_HOME/platforms" || true
           ls "$ANDROID_HOME/build-tools" || true
 
+      # The signing key must stay identical between runs, otherwise Android
+      # refuses to install the new APK over the previous one.
+      - name: Restore signing keystore
+        uses: actions/cache@v4
+        with:
+          path: keystore/floaty.jks
+          key: floaty-keystore-v1
+
+      - name: Create signing keystore if missing
+        run: |
+          mkdir -p keystore
+          if [ ! -f keystore/floaty.jks ]; then
+            keytool -genkeypair -v \
+              -keystore keystore/floaty.jks -storetype JKS \
+              -storepass floatyvolume -keypass floatyvolume \
+              -alias floaty -keyalg RSA -keysize 2048 -validity 10950 \
+              -dname "CN=Floaty Volume, O=Floaty, C=IN"
+          fi
+
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
-      - name: Build debug APK
-        run: ./gradlew --no-daemon --stacktrace assembleDebug
+      - name: Build release APK (R8 optimised)
+        run: ./gradlew --no-daemon --stacktrace assembleRelease
 
       - name: Show APK output
         run: |
@@ -48,20 +67,23 @@ jobs:
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: floaty-volume-debug-apk
-          path: app/build/outputs/apk/debug/*.apk
+          name: floaty-volume-apk
+          path: app/build/outputs/apk/release/*.apk
           if-no-files-found: error
 
       - name: Publish APK to release
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v1.0.${{ github.run_number }}
-          name: Floaty Volume v1.0.${{ github.run_number }}
+          tag_name: v1.2.${{ github.run_number }}
+          name: Floaty Volume v1.2.${{ github.run_number }}
           body: |
-            Installable debug APK — works on Android 8.0 (API 26) through Android 9+ (API 28+).
+            Lightweight floating volume control for OPPO A3s / Android 8+.
+
+            - Works on Android 8.0 (API 26) and newer; built for Android 9 (API 28).
+            - R8-optimised release build: no dependencies, no background work.
 
             Install: enable "Install unknown apps" for your file manager, open the APK,
             then grant "Display over other apps" and tap "Start floating bubble".
-          files: app/build/outputs/apk/debug/*.apk
+          files: app/build/outputs/apk/release/*.apk
           fail_on_unmatched_files: true

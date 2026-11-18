@@ -3,6 +3,11 @@ plugins {
     id 'org.jetbrains.kotlin.android'
 }
 
+// A stable signing key is what lets a new APK install over the old one.
+// CI generates it once and caches it; locally it is simply absent.
+def keystoreFile = file(System.getenv("FLOATY_KEYSTORE") ?: "${rootDir}/keystore/floaty.jks")
+def hasKeystore = keystoreFile.exists()
+
 android {
     namespace 'com.floaty.volume'
     compileSdk 34
@@ -11,19 +16,31 @@ android {
         applicationId 'com.floaty.volume'
         minSdk 26          // Android 8.0 Oreo and newer (8.x, 9, 10, 11, 12+)
         targetSdk 28       // Android 9 behaviour: overlay + foreground-service rules
-        versionCode 2
-        versionName '1.1'
+        versionCode 3
+        versionName '1.2'
+    }
+
+    signingConfigs {
+        if (hasKeystore) {
+            release {
+                storeFile keystoreFile
+                storePassword System.getenv("FLOATY_STORE_PASS") ?: "floatyvolume"
+                keyAlias System.getenv("FLOATY_KEY_ALIAS") ?: "floaty"
+                keyPassword System.getenv("FLOATY_KEY_PASS") ?: "floatyvolume"
+            }
+        }
     }
 
     buildTypes {
         debug {
-            // Signed with the default debug key by AGP: installable straight from CI.
             minifyEnabled false
         }
         release {
-            // Signed with the debug key as well so the sideloaded APK is stable across builds.
-            signingConfig signingConfigs.debug
-            minifyEnabled false
+            // R8 removes the unused Kotlin stdlib and optimises the bytecode:
+            // the shipped APK is ~3x smaller and starts faster on weak hardware.
+            minifyEnabled true
+            shrinkResources true
+            signingConfig hasKeystore ? signingConfigs.release : signingConfigs.debug
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
     }

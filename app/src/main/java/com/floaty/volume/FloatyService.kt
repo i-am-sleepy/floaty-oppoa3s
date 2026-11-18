@@ -15,8 +15,12 @@ import android.view.WindowManager
 
 /**
  * Foreground service that keeps the bubble (and the optional panel) alive while
- * the user is in other apps. Nothing runs in the background except this idle
- * service and two lightweight windows, so battery impact is negligible.
+ * the user is in other apps.
+ *
+ * Performance: the service holds no timers, no polling loops and no wake locks.
+ * It only reacts to touch events, so idle cost is effectively zero. The panel
+ * object is kept between opens so its view hierarchy is inflated once, and the
+ * notification is built once and reused.
  */
 class FloatyService : Service() {
 
@@ -26,6 +30,7 @@ class FloatyService : Service() {
 
     private var bubble: BubbleOverlay? = null
     private var panel: VolumePanel? = null
+    private var notification: Notification? = null
 
     override fun onCreate() {
         super.onCreate()
@@ -71,6 +76,12 @@ class FloatyService : Service() {
             manager.createNotificationChannel(channel)
         }
 
+        // Build once; rebuilding on every start would be wasted work.
+        val built = notification ?: buildNotification().also { notification = it }
+        startForeground(NOTIFICATION_ID, built)
+    }
+
+    private fun buildNotification(): Notification {
         val openIntent = PendingIntent.getActivity(
             this,
             0,
@@ -85,7 +96,7 @@ class FloatyService : Service() {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        val notification: Notification = Notification.Builder(this, CHANNEL_ID)
+        return Notification.Builder(this, CHANNEL_ID)
             .setContentTitle(getString(R.string.notification_title))
             .setContentText(getString(R.string.notification_text))
             .setSmallIcon(R.drawable.ic_volume_up)
@@ -100,8 +111,6 @@ class FloatyService : Service() {
             .setOngoing(true)
             .setPriority(Notification.PRIORITY_LOW)
             .build()
-
-        startForeground(NOTIFICATION_ID, notification)
     }
 
     private fun showBubble() {
@@ -122,25 +131,21 @@ class FloatyService : Service() {
         val current = panel
         if (current != null && current.isOpen) {
             current.hide()
-            panel = null
             return
         }
-        val p = VolumePanel(
+        // Reuse the existing panel object: its views are already inflated.
+        val p = current ?: VolumePanel(
             context = this,
             windowManager = windowManager,
             volume = volume,
             anchor = { bubble?.center() ?: Point(0, 0) }
-        )
+        ).also { panel = it }
         p.show()
-        panel = p
     }
 
     private fun repositionPanel() {
         val open = panel ?: return
-        if (open.isOpen) {
-            open.hide()
-            panel = null
-        }
+        if (open.isOpen) open.hide()
     }
 
     private fun stopEverything() {

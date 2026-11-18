@@ -3,13 +3,16 @@ package com.floaty.volume
 import android.content.Context
 import android.media.AudioManager
 import android.os.Build
+import android.util.SparseIntArray
 
 /**
  * Thin, null-safe wrapper around AudioManager.
  *
- * All four streams the panel exposes are real system streams, so changes are
- * exactly what the hardware volume keys would do (and are reflected in the
- * system volume UI / other apps).
+ * Performance notes (this matters on a Snapdragon 450):
+ * every AudioManager getter is a binder IPC call to audioserver, so the panel
+ * must never poll them in a loop. Stream max/min values are cached (they do not
+ * change for a given device) and slider dragging uses [setFast], which performs
+ * exactly one IPC call per step and skips the read-back verification.
  */
 class VolumeController(context: Context) {
 
@@ -24,23 +27,68 @@ class VolumeController(context: Context) {
         AudioManager.STREAM_SYSTEM
     )
 
-    fun max(stream: Int): Int = audioManager.getStreamMaxVolume(stream)
+    // Cached because getStreamMaxVolume/getStreamMinVolume are IPC and constant.
+    private val maxCache = SparseIntArray(4)
+    private val minCache = SparseIntArray(4)
 
-    fun min(stream: Int): Int =
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-            audioManager.getStreamMinVolume(stream)
-        } else {
+    fun max(stream: Int): Int {
+        val cached = maxCache.get(stream, -1)
+        if (cached >= 0) return cached
+        val value = try {
+            audioManager.getStreamMaxVolume(stream)
+        } catch (e: Exception) {
+            15
+        }
+        maxCache.put(stream, value)
+        return value
+    }
+
+    fun min(stream: Int): Int {
+        val cached = minCache.get(stream, -1)
+        if (cached >= 0) return cached
+        val value = try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                audioManager.getStreamMinVolume(stream)
+            } else {
+                0
+            }
+        } catch (e: Exception) {
             0
         }
+        minCache.put(stream, value)
+        return value
+    }
 
-    fun current(stream: Int): Int = audioManager.getStreamVolume(stream)
+    fun current(stream: Int): Int = try {
+        audioManager.getStreamVolume(stream)
+    } catch (e: Exception) {
+        0
+    }
 
     /** Stream that the +/- buttons act on by default. */
     var targetStream: Int = AudioManager.STREAM_MUSIC
 
     /**
-     * Sets an absolute index on [stream], clamped to the device range.
-     * Uses flag 0 so the system volume overlay is not shown on top of our panel.
+     * One-way write used while a slider is being dragged: a single binder call,
+     * no read-back. The value is reconciled once in onStopTrackingTouch.
+     * Uses flag 0 so the system volume overlay does not pop up over our panel.
+     */
+    fun setFast(stream: Int, index: Int) {
+        val hi = max(stream)
+        val lo = min(stream)
+        if (hi <= lo) return
+        try {
+            audioManager.setStreamVolume(stream, index.coerceIn(lo, hi), 0)
+        } catch (e: SecurityException) {
+            // Stream not controllable on this ROM.
+        } catch (e: IllegalArgumentException) {
+            // Unknown stream.
+        }
+    }
+
+    /**
+     * Sets an absolute index on [stream] and verifies the system accepted it.
+     * Used for discrete +/- taps, where one extra read-back is cheap.
      *
      * @return true when AudioManager actually accepted the value.
      */
@@ -51,17 +99,15 @@ class VolumeController(context: Context) {
         val value = index.coerceIn(lo, hi)
         return try {
             audioManager.setStreamVolume(stream, value, 0)
-            // Some ROMs (incl. ColorOS with Do-Not-Disturb) silently ignore the call.
-            if (audioManager.getStreamVolume(stream) == value) {
+            val actual = audioManager.getStreamVolume(stream)
+            if (actual == value) {
                 true
             } else {
+                // Some ROMs (incl. ColorOS with Do-Not-Disturb) silently ignore
+                // setStreamVolume; fall back to a relative adjust.
                 audioManager.adjustStreamVolume(
                     stream,
-                    if (value > audioManager.getStreamVolume(stream)) {
-                        AudioManager.ADJUST_RAISE
-                    } else {
-                        AudioManager.ADJUST_LOWER
-                    },
+                    if (value > actual) AudioManager.ADJUST_RAISE else AudioManager.ADJUST_LOWER,
                     0
                 )
                 audioManager.getStreamVolume(stream) == value

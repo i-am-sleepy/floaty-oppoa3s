@@ -5,6 +5,7 @@ import android.content.Context
 import android.graphics.PixelFormat
 import android.graphics.Point
 import android.media.AudioManager
+import android.os.SystemClock
 import android.view.Gravity
 import android.view.LayoutInflater
 import android.view.View
@@ -18,6 +19,10 @@ import android.widget.TextView
  *
  * The window is a full-screen scrim; the card sits next to the bubble and any
  * touch outside the card closes the panel.
+ *
+ * Performance: the view hierarchy is inflated once and reused across opens
+ * (hide() only detaches the window), slider drags write to AudioManager without
+ * any read-back, and repaints are skipped when nothing actually changed.
  */
 class VolumePanel(
     private val context: Context,
@@ -26,11 +31,11 @@ class VolumePanel(
     private val anchor: () -> Point
 ) {
 
-    private var root: View? = null
-    private var params: WindowManager.LayoutParams? = null
+    /** Inflated once, then re-attached on every open. */
+    private var content: View? = null
+    private var attached = false
     private var card: View? = null
 
-    private var title: TextView? = null
     private var targetName: TextView? = null
     private var targetValue: TextView? = null
 
@@ -52,18 +57,26 @@ class VolumePanel(
     /** Guards against feedback loops while we programmatically set progress. */
     private var updating = false
 
+    /** Stream currently painted as selected, so we only repaint on change. */
+    private var highlighted = Int.MIN_VALUE
+
+    /** Throttle timestamp for slider writes (one AudioManager call per frame max). */
+    private var lastWriteAt = 0L
+
+    private val selectedColor by lazy { context.getColor(R.color.row_selected) }
+
     val isOpen: Boolean
-        get() = root != null
+        get() = attached
 
     @SuppressLint("ClickableViewAccessibility", "InflateParams", "SetTextI18n")
     fun show() {
-        if (root != null) {
+        if (attached) {
             refresh()
             return
         }
 
-        val content = LayoutInflater.from(context).inflate(R.layout.overlay_panel, null)
-        bindViews(content)
+        val view = content ?: buildContent()
+        content = view
 
         val lp = WindowManager.LayoutParams(
             WindowManager.LayoutParams.MATCH_PARENT,
@@ -76,45 +89,35 @@ class VolumePanel(
             gravity = Gravity.TOP or Gravity.START
         }
 
-        // Tap on the scrim (outside the card) closes the panel.
-        content.setOnClickListener { hide() }
-        card?.setOnClickListener { /* swallow taps inside the card */ }
-
-        // root must be set before the listeners that look it up.
-        root = content
-        params = lp
-
-        wireStepButtons()
-        wireSeekBars()
-        wireRowSelection()
-
         try {
-            windowManager.addView(content, lp)
+            windowManager.addView(view, lp)
         } catch (e: Exception) {
-            root = null
-            params = null
             return
         }
+        attached = true
 
         positionCard()
         // Re-position once the card has a real measured height.
-        content.post { positionCard() }
+        view.post { positionCard() }
         refresh()
     }
 
     fun hide() {
-        val v = root ?: return
-        try {
-            windowManager.removeView(v)
-        } catch (ignored: Exception) {
-            // Already detached.
+        if (!attached) return
+        content?.let {
+            try {
+                windowManager.removeView(it)
+            } catch (ignored: Exception) {
+                // Already detached.
+            }
         }
-        root = null
-        params = null
+        attached = false
     }
 
     /** Re-reads every stream from AudioManager and repaints the sliders. */
     fun refresh() {
+        if (!attached) return
+
         val media = volume.current(AudioManager.STREAM_MUSIC)
         val ring = volume.current(AudioManager.STREAM_RING)
         val alarm = volume.current(AudioManager.STREAM_ALARM)
@@ -139,66 +142,83 @@ class VolumePanel(
         }
         updating = false
 
-        valMedia?.text = media.toString()
-        valRing?.text = ring.toString()
-        valAlarm?.text = alarm.toString()
-        valSystem?.text = system.toString()
+        setText(valMedia, media)
+        setText(valRing, ring)
+        setText(valAlarm, alarm)
+        setText(valSystem, system)
 
         highlightTarget()
         updateTargetLabels()
     }
 
-    private fun bindViews(content: View) {
-        card = content.findViewById(R.id.panelCard)
-        title = content.findViewById(R.id.panelTitle)
-        targetName = content.findViewById(R.id.targetName)
-        targetValue = content.findViewById(R.id.targetValue)
+    private fun buildContent(): View {
+        val view = LayoutInflater.from(context).inflate(R.layout.overlay_panel, null)
 
-        seekMedia = content.findViewById(R.id.seekMedia)
-        seekRing = content.findViewById(R.id.seekRing)
-        seekAlarm = content.findViewById(R.id.seekAlarm)
-        seekSystem = content.findViewById(R.id.seekSystem)
+        card = view.findViewById(R.id.panelCard)
+        targetName = view.findViewById(R.id.targetName)
+        targetValue = view.findViewById(R.id.targetValue)
 
-        valMedia = content.findViewById(R.id.valMedia)
-        valRing = content.findViewById(R.id.valRing)
-        valAlarm = content.findViewById(R.id.valAlarm)
-        valSystem = content.findViewById(R.id.valSystem)
+        seekMedia = view.findViewById(R.id.seekMedia)
+        seekRing = view.findViewById(R.id.seekRing)
+        seekAlarm = view.findViewById(R.id.seekAlarm)
+        seekSystem = view.findViewById(R.id.seekSystem)
 
-        rowMedia = content.findViewById(R.id.rowMedia)
-        rowRing = content.findViewById(R.id.rowRing)
-        rowAlarm = content.findViewById(R.id.rowAlarm)
-        rowSystem = content.findViewById(R.id.rowSystem)
+        valMedia = view.findViewById(R.id.valMedia)
+        valRing = view.findViewById(R.id.valRing)
+        valAlarm = view.findViewById(R.id.valAlarm)
+        valSystem = view.findViewById(R.id.valSystem)
 
-        content.findViewById<View>(R.id.btnClose).setOnClickListener { hide() }
+        rowMedia = view.findViewById(R.id.rowMedia)
+        rowRing = view.findViewById(R.id.rowRing)
+        rowAlarm = view.findViewById(R.id.rowAlarm)
+        rowSystem = view.findViewById(R.id.rowSystem)
+
+        view.findViewById<View>(R.id.btnClose).setOnClickListener { hide() }
+
+        // Tap on the scrim (outside the card) closes the panel.
+        view.setOnClickListener { hide() }
+        card?.setOnClickListener { /* swallow taps inside the card */ }
+
+        wireStepButtons(view)
+        wireSeekBars()
+        wireRowSelection()
+
+        return view
     }
 
-    private fun wireStepButtons() {
-        root?.findViewById<View>(R.id.btnPlus)?.setOnClickListener {
+    private fun wireStepButtons(view: View) {
+        view.findViewById<View>(R.id.btnPlus).setOnClickListener {
             volume.step(volume.targetStream, +1)
             refresh()
         }
-        root?.findViewById<View>(R.id.btnMinus)?.setOnClickListener {
+        view.findViewById<View>(R.id.btnMinus).setOnClickListener {
             volume.step(volume.targetStream, -1)
             refresh()
         }
     }
 
     private fun wireSeekBars() {
-        attachSeekBar(seekMedia, AudioManager.STREAM_MUSIC) { valMedia?.text = it.toString() }
-        attachSeekBar(seekRing, AudioManager.STREAM_RING) { valRing?.text = it.toString() }
-        attachSeekBar(seekAlarm, AudioManager.STREAM_ALARM) { valAlarm?.text = it.toString() }
-        attachSeekBar(seekSystem, AudioManager.STREAM_SYSTEM) { valSystem?.text = it.toString() }
+        attachSeekBar(seekMedia, AudioManager.STREAM_MUSIC, valMedia)
+        attachSeekBar(seekRing, AudioManager.STREAM_RING, valRing)
+        attachSeekBar(seekAlarm, AudioManager.STREAM_ALARM, valAlarm)
+        attachSeekBar(seekSystem, AudioManager.STREAM_SYSTEM, valSystem)
     }
 
-    private fun attachSeekBar(bar: SeekBar?, stream: Int, onValue: (Int) -> Unit) {
+    private fun attachSeekBar(bar: SeekBar?, stream: Int, label: TextView?) {
         bar ?: return
         bar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(seekBar: SeekBar, progress: Int, fromUser: Boolean) {
                 if (updating || !fromUser) return
-                volume.set(stream, progress)
-                val actual = volume.current(stream)
-                onValue(actual)
-                if (volume.targetStream == stream) updateTargetLabels()
+
+                // One-way write, throttled to roughly one call per frame: a
+                // read-back here would double the binder traffic while dragging.
+                val now = SystemClock.uptimeMillis()
+                if (now - lastWriteAt >= 16L) {
+                    lastWriteAt = now
+                    volume.setFast(stream, progress)
+                }
+                setText(label, progress)
+                if (volume.targetStream == stream) updateTargetLabels(progress)
             }
 
             override fun onStartTrackingTouch(seekBar: SeekBar) {
@@ -208,12 +228,17 @@ class VolumePanel(
             }
 
             override fun onStopTrackingTouch(seekBar: SeekBar) {
-                // Keep the slider in sync with what the system really accepted.
-                if (!updating) {
+                // Commit the final value, then reconcile with what the system took.
+                volume.setFast(stream, seekBar.progress)
+                lastWriteAt = 0L
+                val actual = volume.current(stream)
+                if (actual != seekBar.progress) {
                     updating = true
-                    seekBar.progress = volume.current(stream)
+                    seekBar.progress = actual
                     updating = false
                 }
+                setText(label, actual)
+                if (volume.targetStream == stream) updateTargetLabels(actual)
             }
         })
     }
@@ -232,17 +257,23 @@ class VolumePanel(
     }
 
     private fun highlightTarget() {
-        val selected = context.getColor(R.color.row_selected)
-        val normal = 0
-        rowMedia?.setBackgroundColor(if (volume.targetStream == AudioManager.STREAM_MUSIC) selected else normal)
-        rowRing?.setBackgroundColor(if (volume.targetStream == AudioManager.STREAM_RING) selected else normal)
-        rowAlarm?.setBackgroundColor(if (volume.targetStream == AudioManager.STREAM_ALARM) selected else normal)
-        rowSystem?.setBackgroundColor(if (volume.targetStream == AudioManager.STREAM_SYSTEM) selected else normal)
-        title?.text = context.getString(R.string.panel_title)
+        val stream = volume.targetStream
+        if (stream == highlighted) return
+        highlighted = stream
+
+        rowMedia?.setBackgroundColor(if (stream == AudioManager.STREAM_MUSIC) selectedColor else 0)
+        rowRing?.setBackgroundColor(if (stream == AudioManager.STREAM_RING) selectedColor else 0)
+        rowAlarm?.setBackgroundColor(if (stream == AudioManager.STREAM_ALARM) selectedColor else 0)
+        rowSystem?.setBackgroundColor(if (stream == AudioManager.STREAM_SYSTEM) selectedColor else 0)
+    }
+
+    private fun setText(view: TextView?, value: Int) {
+        val text = value.toString()
+        if (view != null && view.text.toString() != text) view.text = text
     }
 
     @SuppressLint("SetTextI18n")
-    private fun updateTargetLabels() {
+    private fun updateTargetLabels(knownValue: Int = -1) {
         val stream = volume.targetStream
         targetName?.text = when (stream) {
             AudioManager.STREAM_MUSIC -> context.getString(R.string.stream_media)
@@ -250,7 +281,8 @@ class VolumePanel(
             AudioManager.STREAM_ALARM -> context.getString(R.string.stream_alarm)
             else -> context.getString(R.string.stream_system)
         }
-        targetValue?.text = "${volume.current(stream)} / ${volume.max(stream)}"
+        val value = if (knownValue >= 0) knownValue else volume.current(stream)
+        targetValue?.text = "$value / ${volume.max(stream)}"
     }
 
     /** Places the card next to the bubble, always fully on screen. */
