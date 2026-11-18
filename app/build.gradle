@@ -1,0 +1,52 @@
+plugins {
+    id 'com.android.application'
+    id 'org.jetbrains.kotlin.android'
+}
+
+android {
+    namespace 'com.floaty.volume'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId 'com.floaty.volume'
+        minSdk 28
+        targetSdk 28
+        versionCode 1
+        versionName '1.0'
+    }
+
+    buildTypes {
+        debug {
+            // Signed with the default debug key by AGP: installable straight from CI.
+            minifyEnabled false
+        }
+        release {
+            // Signed with the debug key as well so the sideloaded APK is stable across builds.
+            signingConfig signingConfigs.debug
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    kotlinOptions {
+        jvmTarget = '17'
+    }
+
+    buildFeatures {
+        buildConfig true
+    }
+
+    lint {
+        abortOnError false
+        checkReleaseBuilds false
+    }
+}
+
+dependencies {
+    // Intentionally dependency-free: framework widgets + AudioManager only.
+}
