@@ -59,7 +59,7 @@ jobs:
           tag_name: v1.0.${{ github.run_number }}
           name: Floaty Volume v1.0.${{ github.run_number }}
           body: |
-            Installable debug APK for OPPO A3s (Android 9 / API 28).
+            Installable debug APK — works on Android 8.0 (API 26) through Android 9+ (API 28+).
 
             Install: enable "Install unknown apps" for your file manager, open the APK,
             then grant "Display over other apps" and tap "Start floating bubble".

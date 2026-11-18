@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Floaty Volume</string>
+    <string name="app_tagline">Volume buttons broken? Use the floating bubble.</string>
+
+    <string name="permission_title">1. Allow floating bubble</string>
+    <string name="permission_body">Android needs the \"Display over other apps\" permission so the bubble can stay on top of other apps.</string>
+    <string name="permission_grant">Grant permission</string>
+    <string name="permission_granted">Permission granted ✓</string>
+
+    <string name="start_title">2. Start the bubble</string>
+    <string name="start_body">A small bubble stays on screen. Tap it for volume controls, drag it anywhere.</string>
+    <string name="start_button">Start floating bubble</string>
+    <string name="stop_button">Stop floating bubble</string>
+
+    <string name="battery_title">Keep it running</string>
+    <string name="battery_body">On OPPO/ColorOS, allow this app in Settings → Battery → App battery management → Allow background activity, otherwise the system may kill the bubble.</string>
+
+    <string name="notification_channel">Floaty Volume</string>
+    <string name="notification_title">Floaty Volume is running</string>
+    <string name="notification_text">Tap the bubble to change volume</string>
+    <string name="notification_stop">Stop</string>
+
+    <string name="panel_title">Volume</string>
+    <string name="panel_hint">Tap a row to target it with + / −</string>
+    <string name="panel_close">Close</string>
+    <string name="stream_media">Media</string>
+    <string name="stream_ring">Ringtone</string>
+    <string name="stream_alarm">Alarm</string>
+    <string name="stream_system">System</string>
+
+    <string name="toast_permission_needed">Grant \"Display over other apps\" first</string>
+    <string name="toast_started">Floating bubble started</string>
+    <string name="toast_stopped">Floating bubble stopped</string>
+</resources>

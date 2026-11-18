@@ -9,10 +9,10 @@ android {
 
     defaultConfig {
         applicationId 'com.floaty.volume'
-        minSdk 28
-        targetSdk 28
-        versionCode 1
-        versionName '1.0'
+        minSdk 26          // Android 8.0 Oreo and newer (8.x, 9, 10, 11, 12+)
+        targetSdk 28       // Android 9 behaviour: overlay + foreground-service rules
+        versionCode 2
+        versionName '1.1'
     }
 
     buildTypes {
