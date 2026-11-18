@@ -17,6 +17,10 @@ import android.view.WindowManager
  *
  * Drag moves the window; a short tap without movement opens the panel.
  *
+ * While the panel is open the bubble "docks": on touch-down it moves to the
+ * spot just above the panel (so the pair reads as one unit), and when the
+ * panel closes it returns to the position it had before the tap.
+ *
  * Performance: WindowManager.updateViewLayout() is a cross-process transaction,
  * so calling it on every ACTION_MOVE makes dragging stutter badly on low-end
  * hardware. Moves are therefore coalesced to at most one layout update per
@@ -36,10 +40,15 @@ class BubbleOverlay(
 
     private val touchSlop = ViewConfiguration.get(context).scaledTouchSlop
     private val tapTimeout = ViewConfiguration.getTapTimeout().toLong() + 120L
-    private val bubbleSize = dp(56)
+    private val bubbleSize = dp(40)
 
     /** True when a coalesced layout update is already scheduled for this frame. */
     private var updateScheduled = false
+
+    /** Position saved before the bubble docked above the panel. */
+    private var dockSavedX = -1
+    private var dockSavedY = -1
+    private var docked = false
 
     private val applyPendingLayout = Runnable {
         updateScheduled = false
@@ -51,6 +60,14 @@ class BubbleOverlay(
     val isShowing: Boolean
         get() = view != null
 
+    /**
+     * Dock position provider used while the panel is open (returns the point
+     * just above the panel). The service sets this on open and nulls it on
+     * close; the actual move happens via [dockNow] / [restoreFromDock] so the
+     * bubble only moves once the card has a valid laid-out position.
+     */
+    var openDock: ((Point) -> Point)? = null
+
     /** Current bubble centre in screen pixels (falls back to the window offset). */
     fun center(): Point {
         val v = view
@@ -61,11 +78,67 @@ class BubbleOverlay(
         return Point(p.x + w / 2, p.y + h / 2)
     }
 
+    /**
+     * Re-inserts the bubble window on top of the other overlay windows.
+     * (The panel scrim is added after the bubble, so without this the docked
+     * bubble would be hidden behind the scrim.) One cheap transaction.
+     */
+    fun bringToFront() {
+        val v = view ?: return
+        val p = params ?: return
+        safeUpdate(v, p)
+    }
+
+    /** Moves the bubble to the dock point right now (panel just opened). */
+    fun dockNow() {
+        val v = view ?: return
+        val p = params ?: return
+        val dock = openDock ?: return
+        // Only remember the first pre-dock position: dockNow() is called again
+        // after the card lays out, and overwriting here would "restore" the
+        // docked position instead of the original one.
+        if (!docked) {
+            dockSavedX = p.x
+            dockSavedY = p.y
+        }
+        val pt = dock(center())
+        p.x = pt.x
+        p.y = pt.y
+        docked = true
+        flushUpdate(v, p)
+    }
+
+    /** Returns the bubble to its pre-dock position (panel just closed). */
+    fun restoreFromDock() {
+        val v = view ?: return
+        val p = params ?: return
+        if (!docked) return
+        docked = false
+        if (dockSavedX >= 0) {
+            p.x = dockSavedX
+            p.y = dockSavedY
+            flushUpdate(v, p)
+            prefs.bubbleX = p.x
+            prefs.bubbleY = p.y
+        }
+    }
+
+    /**
+     * Applies the bubble opacity (0..100) live. View alpha is composited on the
+     * same surface, so this costs no window transactions and no extra frames.
+     */
+    fun setOpacity(percent: Int) {
+        val clamped = percent.coerceIn(0, 100)
+        prefs.bubbleOpacity = clamped
+        view?.alpha = clamped / 100f
+    }
+
     @SuppressLint("ClickableViewAccessibility", "InflateParams")
     fun show() {
         if (view != null) return
 
         val root = LayoutInflater.from(context).inflate(R.layout.overlay_bubble, null)
+        root.alpha = prefs.bubbleOpacity / 100f
         val size = bubbleSize
         val defaults = defaultPosition(size)
 
@@ -101,6 +174,9 @@ class BubbleOverlay(
                         startY = lp.y
                         downTime = SystemClock.uptimeMillis()
                         dragging = false
+                        // While the panel is open, dock above it the moment the
+                        // finger goes down so the pair looks like one unit.
+                        if (openDock != null) dockNow()
                         return true
                     }
 
@@ -129,9 +205,14 @@ class BubbleOverlay(
                         val elapsed = SystemClock.uptimeMillis() - downTime
                         if (!dragging && elapsed <= tapTimeout) {
                             onTap()
+                            // If the tap closed the panel the service already
+                            // nulled openDock, so the bubble goes home.
+                            if (openDock == null) restoreFromDock()
                         } else {
                             // Snap back inside the screen and commit the position
                             // immediately (no coalescing: this is the final frame).
+                            // If the panel was open, the service closes it via
+                            // onPositionChanged and clears the dock.
                             flushUpdate(v, lp)
                             prefs.bubbleX = lp.x
                             prefs.bubbleY = lp.y
@@ -175,6 +256,7 @@ class BubbleOverlay(
         }
         view = null
         params = null
+        docked = false
     }
 
     /** Re-clamps the bubble (e.g. after a rotation) and persists the result. */

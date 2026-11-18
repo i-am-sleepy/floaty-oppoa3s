@@ -2,7 +2,7 @@ package com.floaty.volume
 
 import android.content.Context
 
-/** Tiny SharedPreferences wrapper: bubble position + "should be running". */
+/** Tiny SharedPreferences wrapper: bubble position, opacity + "should be running". */
 class Prefs(context: Context) {
 
     private val sp = context.applicationContext
@@ -16,6 +16,11 @@ class Prefs(context: Context) {
         get() = sp.getInt(KEY_Y, -1)
         set(value) = sp.edit().putInt(KEY_Y, value).apply()
 
+    /** Bubble opacity in percent (0..100), 100 = fully opaque. */
+    var bubbleOpacity: Int
+        get() = sp.getInt(KEY_OPACITY, 100)
+        set(value) = sp.edit().putInt(KEY_OPACITY, value.coerceIn(0, 100)).apply()
+
     /** True while the user wants the bubble up (used to restart after reboot). */
     var wantRunning: Boolean
         get() = sp.getBoolean(KEY_RUNNING, false)
@@ -24,6 +29,7 @@ class Prefs(context: Context) {
     companion object {
         private const val KEY_X = "bubble_x"
         private const val KEY_Y = "bubble_y"
+        private const val KEY_OPACITY = "bubble_opacity"
         private const val KEY_RUNNING = "want_running"
     }
 }

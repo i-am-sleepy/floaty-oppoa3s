@@ -11,5 +11,8 @@
     <color name="row_selected">#FFE3F2FD</color>
     <color name="scrim">#33000000</color>
     <color name="white">#FFFFFFFF</color>
-    <color name="ic_launcher_background">#FF1565C0</color>
+    <color name="ic_launcher_background">#FF111111</color>
+    <color name="bubble_bg">#FF111111</color>
+    <color name="danger">#FFE53935</color>
+    <color name="danger_dark">#FFB71C1C</color>
 </resources>

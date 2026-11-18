@@ -3,7 +3,6 @@ package com.floaty.volume
 import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.PixelFormat
-import android.graphics.Point
 import android.media.AudioManager
 import android.os.SystemClock
 import android.view.Gravity
@@ -17,8 +16,9 @@ import android.widget.TextView
 /**
  * Compact volume panel shown as a second overlay window.
  *
- * The window is a full-screen scrim; the card sits next to the bubble and any
- * touch outside the card closes the panel.
+ * The window is a full-screen scrim; the card sits centered horizontally with
+ * its top at 20% of the screen height (the bubble docks just above it) and
+ * any touch outside the card closes the panel.
  *
  * Performance: the view hierarchy is inflated once and reused across opens
  * (hide() only detaches the window), slider drags write to AudioManager without
@@ -28,7 +28,7 @@ class VolumePanel(
     private val context: Context,
     private val windowManager: WindowManager,
     private val volume: VolumeController,
-    private val anchor: () -> Point
+    private val onTerminate: () -> Unit
 ) {
 
     /** Inflated once, then re-attached on every open. */
@@ -67,6 +67,10 @@ class VolumePanel(
 
     val isOpen: Boolean
         get() = attached
+
+    /** The card view (used by the service to dock the bubble above it). */
+    val cardView: View?
+        get() = card
 
     @SuppressLint("ClickableViewAccessibility", "InflateParams", "SetTextI18n")
     fun show() {
@@ -174,6 +178,9 @@ class VolumePanel(
         rowSystem = view.findViewById(R.id.rowSystem)
 
         view.findViewById<View>(R.id.btnClose).setOnClickListener { hide() }
+
+        // Red power button: terminates the whole tool (bubble + service).
+        view.findViewById<View>(R.id.btnPower).setOnClickListener { onTerminate() }
 
         // Tap on the scrim (outside the card) closes the panel.
         view.setOnClickListener { hide() }
@@ -285,24 +292,23 @@ class VolumePanel(
         targetValue?.text = "$value / ${volume.max(stream)}"
     }
 
-    /** Places the card next to the bubble, always fully on screen. */
+    /**
+     * Places the card centered horizontally with its top at 20% of the screen
+     * height; the bubble docks just above the card while the panel is open.
+     */
     private fun positionCard() {
         val c = card ?: return
         val metrics = context.resources.displayMetrics
         val screenW = metrics.widthPixels
         val screenH = metrics.heightPixels
 
-        val cardW = dp(300)
-        val cardH = c.height.takeIf { it > 0 } ?: dp(430)
+        val cardW = dp(272)
+        val cardH = c.height.takeIf { it > 0 } ?: dp(280)
         val margin = dp(8)
 
-        val bubble = anchor()
-        var x = bubble.x + dp(56) + margin
-        if (x + cardW > screenW) x = bubble.x - cardW - margin
-        x = x.coerceIn(margin, (screenW - cardW - margin).coerceAtLeast(margin))
-
-        var y = bubble.y - cardH / 3
-        y = y.coerceIn(margin, (screenH - cardH - margin).coerceAtLeast(margin))
+        val x = ((screenW - cardW) / 2).coerceAtLeast(margin)
+        val y = (screenH * 0.20f).toInt()
+            .coerceIn(margin, (screenH - cardH - margin).coerceAtLeast(margin))
 
         val lp = c.layoutParams as? FrameLayout.LayoutParams ?: return
         lp.width = cardW

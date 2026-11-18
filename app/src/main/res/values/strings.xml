@@ -16,6 +16,10 @@
     <string name="battery_title">Keep it running</string>
     <string name="battery_body">On OPPO/ColorOS, allow this app in Settings → Battery → App battery management → Allow background activity, otherwise the system may kill the bubble.</string>
 
+    <string name="opacity_title">3. Bubble transparency</string>
+    <string name="opacity_body">Make the bubble more or less transparent. Changes apply immediately and are remembered.</string>
+    <string name="opacity_label">Bubble opacity</string>
+
     <string name="notification_channel">Floaty Volume</string>
     <string name="notification_title">Floaty Volume is running</string>
     <string name="notification_text">Tap the bubble to change volume</string>
@@ -24,6 +28,7 @@
     <string name="panel_title">Volume</string>
     <string name="panel_hint">Tap a row to target it with + / −</string>
     <string name="panel_close">Close</string>
+    <string name="panel_power">Turn off</string>
     <string name="stream_media">Media</string>
     <string name="stream_ring">Ringtone</string>
     <string name="stream_alarm">Alarm</string>

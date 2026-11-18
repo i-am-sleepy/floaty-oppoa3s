@@ -58,6 +58,20 @@ android {
         buildConfig true
     }
 
+    // Drop Kotlin metadata files and other build-time junk from the APK:
+    // they are never read at runtime but cost ~11 KB.
+    packaging {
+        resources {
+            excludes += [
+                "kotlin/**",
+                "META-INF/**",
+                "DebugProbesKt.bin",
+                "**/*.kotlin_builtins",
+                "**/*.kotlin_metadata"
+            ]
+        }
+    }
+
     lint {
         abortOnError false
         checkReleaseBuilds false

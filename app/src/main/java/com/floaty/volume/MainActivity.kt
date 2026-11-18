@@ -6,13 +6,17 @@ import android.net.Uri
 import android.os.Bundle
 import android.provider.Settings
 import android.widget.Button
+import android.widget.SeekBar
+import android.widget.TextView
 import android.widget.Toast
 
-/** Single screen: grant overlay permission, then start/stop the bubble. */
+/** Single screen: grant overlay permission, start/stop the bubble, set opacity. */
 class MainActivity : Activity() {
 
     private lateinit var btnPermission: Button
     private lateinit var btnToggle: Button
+    private lateinit var seekOpacity: SeekBar
+    private lateinit var opacityValue: TextView
     private lateinit var prefs: Prefs
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -22,6 +26,8 @@ class MainActivity : Activity() {
 
         btnPermission = findViewById(R.id.btnPermission)
         btnToggle = findViewById(R.id.btnToggle)
+        seekOpacity = findViewById(R.id.seekOpacity)
+        opacityValue = findViewById(R.id.opacityValue)
 
         btnPermission.setOnClickListener {
             if (Settings.canDrawOverlays(this)) {
@@ -49,6 +55,22 @@ class MainActivity : Activity() {
                 }
             }
         }
+
+        // Bubble transparency: saved to prefs and applied live to the running
+        // bubble via a same-package broadcast (the service owns the window).
+        seekOpacity.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(seekBar: SeekBar, progress: Int, fromUser: Boolean) {
+                if (!fromUser) return
+                prefs.bubbleOpacity = progress
+                opacityValue.text = "$progress%"
+                val intent = Intent(FloatyService.ACTION_OPACITY).setPackage(packageName)
+                intent.putExtra(FloatyService.EXTRA_OPACITY, progress)
+                sendBroadcast(intent)
+            }
+
+            override fun onStartTrackingTouch(seekBar: SeekBar) {}
+            override fun onStopTrackingTouch(seekBar: SeekBar) {}
+        })
     }
 
     override fun onResume() {
@@ -78,5 +100,9 @@ class MainActivity : Activity() {
         btnToggle.text = getString(
             if (prefs.wantRunning) R.string.stop_button else R.string.start_button
         )
+
+        val opacity = prefs.bubbleOpacity
+        seekOpacity.progress = opacity
+        opacityValue.text = "$opacity%"
     }
 }
