@@ -295,11 +295,10 @@ class VolumePanel(
                         updating = true
                         seekBar.progress = actual
                         updating = false
-                        progress = actual
                     }
                 }
-                setText(label, progress)
-                if (volume.targetStream == stream) updateTargetLabels(progress)
+                setText(label, seekBar.progress)
+                if (volume.targetStream == stream) updateTargetLabels(seekBar.progress)
             }
 
             override fun onStartTrackingTouch(seekBar: SeekBar) {
