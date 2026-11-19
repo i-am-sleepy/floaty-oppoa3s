@@ -86,78 +86,9 @@ class VolumeWidgetProvider : AppWidgetProvider() {
             .updateAppWidget(appWidgetId, buildViews(context, appWidgetId))
     }
 
-    private fun buildViews(context: Context, appWidgetId: Int): RemoteViews {
-        val views = RemoteViews(context.packageName, R.layout.widget_volume)
-        val volume = VolumeController(context)
-
-        // Title: opens the full panel (and starts the bubble if it is off).
-        val openIntent = PendingIntent.getBroadcast(
-            context,
-            0,
-            Intent(context, VolumeWidgetProvider::class.java)
-                .setAction(ACTION_OPEN)
-                .putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId),
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
-        views.setOnClickPendingIntent(R.id.wTitle, openIntent)
-
-        // − / + per stream: one PendingIntent per (stream, direction), each
-        // carrying its own stream + delta extras (shared intents would all
-        // carry identical extras, so we cannot tell which button was tapped).
-        fun step(stream: Int, delta: Int, requestCode: Int) {
-            val pi = PendingIntent.getBroadcast(
-                context,
-                requestCode,
-                Intent(context, VolumeWidgetProvider::class.java)
-                    .setAction(ACTION_STEP)
-                    .putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId)
-                    .putExtra(EXTRA_STREAM, stream)
-                    .putExtra(EXTRA_DELTA, delta),
-                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-            )
-            views.setOnClickPendingIntent(streamButtonId(stream, delta), pi)
-        }
-        step(AudioManager.STREAM_MUSIC, -1, 11)
-        step(AudioManager.STREAM_MUSIC, +1, 12)
-        step(AudioManager.STREAM_RING, -1, 13)
-        step(AudioManager.STREAM_RING, +1, 14)
-        step(AudioManager.STREAM_ALARM, -1, 15)
-        step(AudioManager.STREAM_ALARM, +1, 16)
-        step(AudioManager.STREAM_SYSTEM, -1, 17)
-        step(AudioManager.STREAM_SYSTEM, +1, 18)
-        step(AudioManager.STREAM_VOICE_CALL, -1, 19)
-        step(AudioManager.STREAM_VOICE_CALL, +1, 20)
-
-        // Power: toggles the whole tool on/off.
-        val powerIntent = PendingIntent.getBroadcast(
-            context,
-            2,
-            Intent(context, VolumeWidgetProvider::class.java)
-                .setAction(ACTION_POWER)
-                .putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId),
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
-        views.setOnClickPendingIntent(R.id.wbtnPower, powerIntent)
-
-        paintStreams(views, volume)
-        return views
-    }
-
-    /** Sets all five progress bars from the current streams. */
-    private fun paintStreams(views: RemoteViews, volume: VolumeController) {
-        // Scale each bar to the stream's real maximum (7–15 on most phones,
-        // not the 100 the layout declares) so the fill is accurate.
-        views.setInt(R.id.wbarMedia, "setMax", volume.max(AudioManager.STREAM_MUSIC))
-        views.setInt(R.id.wbarRing, "setMax", volume.max(AudioManager.STREAM_RING))
-        views.setInt(R.id.wbarAlarm, "setMax", volume.max(AudioManager.STREAM_ALARM))
-        views.setInt(R.id.wbarSystem, "setMax", volume.max(AudioManager.STREAM_SYSTEM))
-        views.setInt(R.id.wbarCall, "setMax", volume.max(AudioManager.STREAM_VOICE_CALL))
-
-        views.setInt(R.id.wbarMedia, "setProgress", volume.current(AudioManager.STREAM_MUSIC))
-        views.setInt(R.id.wbarRing, "setProgress", volume.current(AudioManager.STREAM_RING))
-        views.setInt(R.id.wbarAlarm, "setProgress", volume.current(AudioManager.STREAM_ALARM))
-        views.setInt(R.id.wbarSystem, "setProgress", volume.current(AudioManager.STREAM_SYSTEM))
-        views.setInt(R.id.wbarCall, "setProgress", volume.current(AudioManager.STREAM_VOICE_CALL))
+    /** Drop the cached PendingIntents when a widget instance is removed. */
+    override fun onRemoved(context: Context, appWidgetIds: IntArray) {
+        for (id in appWidgetIds) piCache.remove(id)
     }
 
     companion object {
@@ -167,8 +98,69 @@ class VolumeWidgetProvider : AppWidgetProvider() {
         const val EXTRA_STREAM = "stream"
         const val EXTRA_DELTA = "delta"
 
+        private val streams = intArrayOf(
+            AudioManager.STREAM_MUSIC,
+            AudioManager.STREAM_RING,
+            AudioManager.STREAM_ALARM,
+            AudioManager.STREAM_SYSTEM,
+            AudioManager.STREAM_VOICE_CALL
+        )
+
         private fun componentName(context: Context) =
             ComponentName(context, VolumeWidgetProvider::class.java)
+
+        /**
+         * Cached per placed widget: the 12 click PendingIntents never change
+         * after first creation, so we build them once and reuse them on every
+         * redraw. Creating them fresh on each volume change costs 12 binder
+         * IPCs; caching removes that entirely.
+         */
+        private val piCache = HashMap<Int, Array<PendingIntent?>>()
+
+        private fun pendingIntents(context: Context, id: Int): Array<PendingIntent?> {
+            piCache[id]?.let { return it }
+            val arr = arrayOfNulls<PendingIntent>(12)
+            // 0: title -> open the full panel.
+            arr[0] = PendingIntent.getBroadcast(
+                context,
+                0,
+                Intent(context, VolumeWidgetProvider::class.java)
+                    .setAction(ACTION_OPEN)
+                    .putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, id),
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+            // 1..10: − / + per stream, one PendingIntent each (shared intents
+            // would carry identical extras, so we could not tell the button).
+            var code = 11
+            var idx = 1
+            for (s in streams) {
+                for (delta in intArrayOf(-1, 1)) {
+                    arr[idx] = PendingIntent.getBroadcast(
+                        context,
+                        code,
+                        Intent(context, VolumeWidgetProvider::class.java)
+                            .setAction(ACTION_STEP)
+                            .putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, id)
+                            .putExtra(EXTRA_STREAM, s)
+                            .putExtra(EXTRA_DELTA, delta),
+                        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                    )
+                    idx++
+                    code++
+                }
+            }
+            // 11: power -> toggle the whole tool.
+            arr[11] = PendingIntent.getBroadcast(
+                context,
+                2,
+                Intent(context, VolumeWidgetProvider::class.java)
+                    .setAction(ACTION_POWER)
+                    .putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, id),
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+            piCache[id] = arr
+            return arr
+        }
 
         /** Maps a (stream, direction) pair to the matching − / + view id. */
         private fun streamButtonId(stream: Int, delta: Int): Int {
@@ -189,6 +181,38 @@ class VolumeWidgetProvider : AppWidgetProvider() {
             return if (delta < 0) minus else plus
         }
 
+        /** Builds the RemoteViews for [appWidgetId] (clicks cached, bars live). */
+        private fun buildViews(context: Context, appWidgetId: Int): RemoteViews {
+            val views = RemoteViews(context.packageName, R.layout.widget_volume)
+            val pis = pendingIntents(context, appWidgetId)
+            pis[0]?.let { views.setOnClickPendingIntent(R.id.wTitle, it) }
+            var idx = 1
+            for (s in streams) {
+                pis[idx]?.let { views.setOnClickPendingIntent(streamButtonId(s, -1), it) }; idx++
+                pis[idx]?.let { views.setOnClickPendingIntent(streamButtonId(s, +1), it) }; idx++
+            }
+            pis[11]?.let { views.setOnClickPendingIntent(R.id.wbtnPower, it) }
+            paintStreams(views, VolumeController(context))
+            return views
+        }
+
+        /** Sets all five progress bars from the current streams. */
+        private fun paintStreams(views: RemoteViews, volume: VolumeController) {
+            // Scale each bar to the stream's real maximum (7–15 on most phones,
+            // not the 100 the layout declares) so the fill is accurate.
+            views.setInt(R.id.wbarMedia, "setMax", volume.max(AudioManager.STREAM_MUSIC))
+            views.setInt(R.id.wbarRing, "setMax", volume.max(AudioManager.STREAM_RING))
+            views.setInt(R.id.wbarAlarm, "setMax", volume.max(AudioManager.STREAM_ALARM))
+            views.setInt(R.id.wbarSystem, "setMax", volume.max(AudioManager.STREAM_SYSTEM))
+            views.setInt(R.id.wbarCall, "setMax", volume.max(AudioManager.STREAM_VOICE_CALL))
+
+            views.setInt(R.id.wbarMedia, "setProgress", volume.current(AudioManager.STREAM_MUSIC))
+            views.setInt(R.id.wbarRing, "setProgress", volume.current(AudioManager.STREAM_RING))
+            views.setInt(R.id.wbarAlarm, "setProgress", volume.current(AudioManager.STREAM_ALARM))
+            views.setInt(R.id.wbarSystem, "setProgress", volume.current(AudioManager.STREAM_SYSTEM))
+            views.setInt(R.id.wbarCall, "setProgress", volume.current(AudioManager.STREAM_VOICE_CALL))
+        }
+
         /**
          * Redraws every placed widget. Called from the service when the
          * bubble panel changes a volume, so the widget and the panel always
@@ -199,7 +223,7 @@ class VolumeWidgetProvider : AppWidgetProvider() {
             val ids = manager.getAppWidgetIds(componentName(context))
             if (ids.isEmpty()) return
             for (id in ids) {
-                manager.updateAppWidget(id, VolumeWidgetProvider().buildViews(context, id))
+                manager.updateAppWidget(id, buildViews(context, id))
             }
         }
     }

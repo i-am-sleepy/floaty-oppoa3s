@@ -56,11 +56,11 @@ class BubbleOverlay(
     /**
      * Applies the bubble opacity (0..100) live. View alpha is composited on the
      * same surface, so this costs no window transactions and no extra frames.
+     * Persistence is the caller's job (MainActivity saves on release), so a
+     * live drag does not write to SharedPreferences on every frame.
      */
     fun setOpacity(percent: Int) {
-        val clamped = percent.coerceIn(0, 100)
-        prefs.bubbleOpacity = clamped
-        view?.alpha = clamped / 100f
+        view?.alpha = percent.coerceIn(0, 100) / 100f
     }
 
     @SuppressLint("ClickableViewAccessibility", "InflateParams")

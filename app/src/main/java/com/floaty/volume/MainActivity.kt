@@ -62,12 +62,12 @@ class MainActivity : Activity() {
             }
         }
 
-        // Bubble transparency: saved to prefs and applied live to the running
-        // bubble via a same-package broadcast (the service owns the window).
+        // Bubble transparency: applied live to the running bubble via a
+        // same-package broadcast (the service owns the window). The value is
+        // persisted once on release, not on every drag frame.
         seekOpacity.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(seekBar: SeekBar, progress: Int, fromUser: Boolean) {
                 if (!fromUser) return
-                prefs.bubbleOpacity = progress
                 opacityValue.text = "$progress%"
                 val intent = Intent(FloatyService.ACTION_OPACITY).setPackage(packageName)
                 intent.putExtra(FloatyService.EXTRA_OPACITY, progress)
@@ -75,14 +75,15 @@ class MainActivity : Activity() {
             }
 
             override fun onStartTrackingTouch(seekBar: SeekBar) {}
-            override fun onStopTrackingTouch(seekBar: SeekBar) {}
+            override fun onStopTrackingTouch(seekBar: SeekBar) {
+                prefs.bubbleOpacity = seekBar.progress
+            }
         })
-        // Panel transparency: saved to prefs and applied live to the open
-        // panel via a same-package broadcast (the service owns the window).
+        // Panel transparency: applied live to the open panel via a same-package
+        // broadcast; persisted once on release.
         seekPanelOpacity.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(seekBar: SeekBar, progress: Int, fromUser: Boolean) {
                 if (!fromUser) return
-                prefs.panelOpacity = progress
                 panelOpacityValue.text = "$progress%"
                 val intent = Intent(FloatyService.ACTION_PANEL_OPACITY).setPackage(packageName)
                 intent.putExtra(FloatyService.EXTRA_PANEL_OPACITY, progress)
@@ -90,7 +91,9 @@ class MainActivity : Activity() {
             }
 
             override fun onStartTrackingTouch(seekBar: SeekBar) {}
-            override fun onStopTrackingTouch(seekBar: SeekBar) {}
+            override fun onStopTrackingTouch(seekBar: SeekBar) {
+                prefs.panelOpacity = seekBar.progress
+            }
         })
 
         // Autostart after reboot: there is no public API for this, so we open

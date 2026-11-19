@@ -29,9 +29,11 @@ class VolumeController(context: Context) {
         AudioManager.STREAM_VOICE_CALL
     )
 
-    // Cached because getStreamMaxVolume/getStreamMinVolume are IPC and constant.
-    private val maxCache = SparseIntArray(4)
-    private val minCache = SparseIntArray(4)
+    // Cached because getStreamMaxVolume/getStreamMinVolume are IPC and constant
+    // for a device. Static (per-process) so a fresh instance — e.g. the widget
+    // creating one per redraw — reuses the values instead of re-reading them.
+    private val maxCache = Companion.maxCache
+    private val minCache = Companion.minCache
 
     fun max(stream: Int): Int {
         val cached = maxCache.get(stream, -1)
@@ -141,4 +143,10 @@ class VolumeController(context: Context) {
     fun step(stream: Int, delta: Int): Boolean = set(stream, current(stream) + delta)
 
     fun isMuted(stream: Int): Boolean = current(stream) <= min(stream)
+
+    companion object {
+        /** Device-constant stream bounds, shared by every instance. */
+        private val maxCache = SparseIntArray(4)
+        private val minCache = SparseIntArray(4)
+    }
 }
