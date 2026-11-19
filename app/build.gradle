@@ -16,8 +16,8 @@ android {
         applicationId 'com.floaty.volume'
         minSdk 26          // Android 8.0 Oreo and newer (8.x, 9, 10, 11, 12+)
         targetSdk 28       // Android 9 behaviour: overlay + foreground-service rules
-        versionCode 6
-        versionName '1.4.1'
+        versionCode 7
+        versionName '1.4.2'
     }
 
     signingConfigs {

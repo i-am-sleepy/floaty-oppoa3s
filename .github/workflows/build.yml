@@ -75,17 +75,17 @@ jobs:
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v1.4.1.${{ github.run_number }}
-          name: Floaty Volume v1.4.1.${{ github.run_number }}
+          tag_name: v1.4.2.${{ github.run_number }}
+          name: Floaty Volume v1.4.2.${{ github.run_number }}
           body: |
             Lightweight floating volume control for OPPO A3s / Android 8+.
 
             - Works on Android 8.0 (API 26) and newer; built for Android 9 (API 28).
             - R8-optimised release build: no dependencies, no background work.
 
-            v1.4.1:
-            - +/− step buttons are now outlined white circles (transparent
-              fill, panel background shows through) with white +/− signs.
+            v1.4.2:
+            - +/− step buttons are now plain white +/− signs on the panel
+              background (no circle, no outline).
 
 
             Install: enable "Install unknown apps" for your file manager, open the APK,
