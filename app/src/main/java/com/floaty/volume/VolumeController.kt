@@ -11,8 +11,9 @@ import android.util.SparseIntArray
  * Performance notes (this matters on a Snapdragon 450):
  * every AudioManager getter is a binder IPC call to audioserver, so the panel
  * must never poll them in a loop. Stream max/min values are cached (they do not
- * change for a given device) and slider dragging uses [setFast], which performs
- * exactly one IPC call per step and skips the read-back verification.
+ * change for a given device) and slider dragging uses [setRobust], which
+ * performs one verified write per throttled frame with a relative-adjust
+ * fallback for ROMs that ignore absolute writes.
  */
 class VolumeController(context: Context) {
 
@@ -70,20 +71,36 @@ class VolumeController(context: Context) {
     var targetStream: Int = AudioManager.STREAM_MUSIC
 
     /**
-     * One-way write used while a slider is being dragged: a single binder call,
-     * no read-back. The value is reconciled once in onStopTrackingTouch.
-     * Uses flag 0 so the system volume overlay does not pop up over our panel.
+     * Robust absolute set used while a slider is being dragged.
+     *
+     * Tries a single [setStreamVolume] write, verifies it stuck, and if the ROM
+     * silently rejected it (ColorOS DND, or a guarded "default" stream) falls
+     * back to a relative [adjustStreamVolume]. Returns the value the system
+     * actually settled on so the caller can reconcile the UI. The read-back is
+     * one binder call and only happens on the (throttled) drag frames.
      */
-    fun setFast(stream: Int, index: Int) {
-        val hi = max(stream)
+    fun setRobust(stream: Int, index: Int): Int {
         val lo = min(stream)
-        if (hi <= lo) return
-        try {
-            audioManager.setStreamVolume(stream, index.coerceIn(lo, hi), 0)
+        val hi = max(stream)
+        if (hi <= lo) return current(stream)
+        val value = index.coerceIn(lo, hi)
+        return try {
+            audioManager.setStreamVolume(stream, value, 0)
+            val actual = audioManager.getStreamVolume(stream)
+            if (actual == value) {
+                actual
+            } else {
+                audioManager.adjustStreamVolume(
+                    stream,
+                    if (value > actual) AudioManager.ADJUST_RAISE else AudioManager.ADJUST_LOWER,
+                    0
+                )
+                audioManager.getStreamVolume(stream)
+            }
         } catch (e: SecurityException) {
-            // Stream not controllable on this ROM.
+            current(stream)
         } catch (e: IllegalArgumentException) {
-            // Unknown stream.
+            current(stream)
         }
     }
 

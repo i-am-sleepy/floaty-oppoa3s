@@ -257,10 +257,14 @@ class VolumePanel(
         view.findViewById<View>(R.id.btnPlus).setOnClickListener {
             volume.step(volume.targetStream, +1)
             refresh()
+            // Keep the home-screen widget in sync (the buttons don't always
+            // fire a VOLUME_CHANGED the service can observe in time).
+            VolumeWidgetProvider.refreshAll(context)
         }
         view.findViewById<View>(R.id.btnMinus).setOnClickListener {
             volume.step(volume.targetStream, -1)
             refresh()
+            VolumeWidgetProvider.refreshAll(context)
         }
     }
 
@@ -278,12 +282,21 @@ class VolumePanel(
             override fun onProgressChanged(seekBar: SeekBar, progress: Int, fromUser: Boolean) {
                 if (updating || !fromUser) return
 
-                // One-way write, throttled to roughly one call per frame: a
-                // read-back here would double the binder traffic while dragging.
+                // Write + verify, throttled to roughly one call per frame. If
+                // the ROM rejects the absolute write (DND / guarded stream)
+                // setRobust falls back to a relative adjust and returns the
+                // value the system actually settled on, so the thumb always
+                // reflects reality instead of snapping back on release.
                 val now = SystemClock.uptimeMillis()
                 if (now - lastWriteAt >= 16L) {
                     lastWriteAt = now
-                    volume.setFast(stream, progress)
+                    val actual = volume.setRobust(stream, progress)
+                    if (actual != progress) {
+                        updating = true
+                        seekBar.progress = actual
+                        updating = false
+                        progress = actual
+                    }
                 }
                 setText(label, progress)
                 if (volume.targetStream == stream) updateTargetLabels(progress)
@@ -299,9 +312,8 @@ class VolumePanel(
             override fun onStopTrackingTouch(seekBar: SeekBar) {
                 isTracking = false
                 // Commit the final value, then reconcile with what the system took.
-                volume.setFast(stream, seekBar.progress)
+                val actual = volume.setRobust(stream, seekBar.progress)
                 lastWriteAt = 0L
-                val actual = volume.current(stream)
                 if (actual != seekBar.progress) {
                     updating = true
                     seekBar.progress = actual

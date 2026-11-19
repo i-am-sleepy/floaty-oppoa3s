@@ -3,7 +3,10 @@
      process, so it survives an app kill. RemoteViews cannot host interactive
      SeekBars, so each stream is a ProgressBar display with − / + buttons.
      The values are the same system AudioManager streams the bubble panel
-     uses, so the two can never desync. -->
+     uses, so the two can never desync.
+
+     The five stream rows use equal layout_weight so they spread evenly down
+     the widget's height instead of clumping at the top. -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
@@ -43,13 +46,13 @@
     <!-- Media -->
     <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="8dp"
+        android:layout_height="0dp"
+        android:layout_weight="1"
         android:gravity="center_vertical"
         android:orientation="horizontal">
 
         <TextView
-            android:layout_width="52dp"
+            android:layout_width="64dp"
             android:layout_height="wrap_content"
             android:text="@string/stream_media"
             android:textColor="@color/white"
@@ -57,13 +60,13 @@
 
         <TextView
             android:id="@+id/wminusMedia"
-            android:layout_width="28dp"
-            android:layout_height="28dp"
-            android:layout_marginStart="4dp"
+            android:layout_width="34dp"
+            android:layout_height="34dp"
+            android:layout_marginStart="6dp"
             android:gravity="center"
             android:text="−"
             android:textColor="@color/white"
-            android:textSize="16sp"
+            android:textSize="20sp"
             android:textStyle="bold" />
 
         <ProgressBar
@@ -78,26 +81,26 @@
 
         <TextView
             android:id="@+id/wplusMedia"
-            android:layout_width="28dp"
-            android:layout_height="28dp"
-            android:layout_marginEnd="4dp"
+            android:layout_width="34dp"
+            android:layout_height="34dp"
+            android:layout_marginEnd="6dp"
             android:gravity="center"
             android:text="+"
             android:textColor="@color/white"
-            android:textSize="16sp"
+            android:textSize="20sp"
             android:textStyle="bold" />
     </LinearLayout>
 
     <!-- Ringtone -->
     <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="4dp"
+        android:layout_height="0dp"
+        android:layout_weight="1"
         android:gravity="center_vertical"
         android:orientation="horizontal">
 
         <TextView
-            android:layout_width="52dp"
+            android:layout_width="64dp"
             android:layout_height="wrap_content"
             android:text="@string/stream_ring"
             android:textColor="@color/white"
@@ -105,13 +108,13 @@
 
         <TextView
             android:id="@+id/wminusRing"
-            android:layout_width="28dp"
-            android:layout_height="28dp"
-            android:layout_marginStart="4dp"
+            android:layout_width="34dp"
+            android:layout_height="34dp"
+            android:layout_marginStart="6dp"
             android:gravity="center"
             android:text="−"
             android:textColor="@color/white"
-            android:textSize="16sp"
+            android:textSize="20sp"
             android:textStyle="bold" />
 
         <ProgressBar
@@ -126,26 +129,26 @@
 
         <TextView
             android:id="@+id/wplusRing"
-            android:layout_width="28dp"
-            android:layout_height="28dp"
-            android:layout_marginEnd="4dp"
+            android:layout_width="34dp"
+            android:layout_height="34dp"
+            android:layout_marginEnd="6dp"
             android:gravity="center"
             android:text="+"
             android:textColor="@color/white"
-            android:textSize="16sp"
+            android:textSize="20sp"
             android:textStyle="bold" />
     </LinearLayout>
 
     <!-- Alarm -->
     <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="4dp"
+        android:layout_height="0dp"
+        android:layout_weight="1"
         android:gravity="center_vertical"
         android:orientation="horizontal">
 
         <TextView
-            android:layout_width="52dp"
+            android:layout_width="64dp"
             android:layout_height="wrap_content"
             android:text="@string/stream_alarm"
             android:textColor="@color/white"
@@ -153,13 +156,13 @@
 
         <TextView
             android:id="@+id/wminusAlarm"
-            android:layout_width="28dp"
-            android:layout_height="28dp"
-            android:layout_marginStart="4dp"
+            android:layout_width="34dp"
+            android:layout_height="34dp"
+            android:layout_marginStart="6dp"
             android:gravity="center"
             android:text="−"
             android:textColor="@color/white"
-            android:textSize="16sp"
+            android:textSize="20sp"
             android:textStyle="bold" />
 
         <ProgressBar
@@ -174,26 +177,26 @@
 
         <TextView
             android:id="@+id/wplusAlarm"
-            android:layout_width="28dp"
-            android:layout_height="28dp"
-            android:layout_marginEnd="4dp"
+            android:layout_width="34dp"
+            android:layout_height="34dp"
+            android:layout_marginEnd="6dp"
             android:gravity="center"
             android:text="+"
             android:textColor="@color/white"
-            android:textSize="16sp"
+            android:textSize="20sp"
             android:textStyle="bold" />
     </LinearLayout>
 
     <!-- System -->
     <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="4dp"
+        android:layout_height="0dp"
+        android:layout_weight="1"
         android:gravity="center_vertical"
         android:orientation="horizontal">
 
         <TextView
-            android:layout_width="52dp"
+            android:layout_width="64dp"
             android:layout_height="wrap_content"
             android:text="@string/stream_system"
             android:textColor="@color/white"
@@ -201,13 +204,13 @@
 
         <TextView
             android:id="@+id/wminusSystem"
-            android:layout_width="28dp"
-            android:layout_height="28dp"
-            android:layout_marginStart="4dp"
+            android:layout_width="34dp"
+            android:layout_height="34dp"
+            android:layout_marginStart="6dp"
             android:gravity="center"
             android:text="−"
             android:textColor="@color/white"
-            android:textSize="16sp"
+            android:textSize="20sp"
             android:textStyle="bold" />
 
         <ProgressBar
@@ -222,26 +225,26 @@
 
         <TextView
             android:id="@+id/wplusSystem"
-            android:layout_width="28dp"
-            android:layout_height="28dp"
-            android:layout_marginEnd="4dp"
+            android:layout_width="34dp"
+            android:layout_height="34dp"
+            android:layout_marginEnd="6dp"
             android:gravity="center"
             android:text="+"
             android:textColor="@color/white"
-            android:textSize="16sp"
+            android:textSize="20sp"
             android:textStyle="bold" />
     </LinearLayout>
 
     <!-- Call -->
     <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="4dp"
+        android:layout_height="0dp"
+        android:layout_weight="1"
         android:gravity="center_vertical"
         android:orientation="horizontal">
 
         <TextView
-            android:layout_width="52dp"
+            android:layout_width="64dp"
             android:layout_height="wrap_content"
             android:text="@string/stream_call"
             android:textColor="@color/white"
@@ -249,13 +252,13 @@
 
         <TextView
             android:id="@+id/wminusCall"
-            android:layout_width="28dp"
-            android:layout_height="28dp"
-            android:layout_marginStart="4dp"
+            android:layout_width="34dp"
+            android:layout_height="34dp"
+            android:layout_marginStart="6dp"
             android:gravity="center"
             android:text="−"
             android:textColor="@color/white"
-            android:textSize="16sp"
+            android:textSize="20sp"
             android:textStyle="bold" />
 
         <ProgressBar
@@ -270,13 +273,13 @@
 
         <TextView
             android:id="@+id/wplusCall"
-            android:layout_width="28dp"
-            android:layout_height="28dp"
-            android:layout_marginEnd="4dp"
+            android:layout_width="34dp"
+            android:layout_height="34dp"
+            android:layout_marginEnd="6dp"
             android:gravity="center"
             android:text="+"
             android:textColor="@color/white"
-            android:textSize="16sp"
+            android:textSize="20sp"
             android:textStyle="bold" />
     </LinearLayout>
 </LinearLayout>

@@ -75,23 +75,24 @@ jobs:
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v1.5.1.${{ github.run_number }}
-          name: Floaty Volume v1.5.1.${{ github.run_number }}
+          tag_name: v1.5.2.${{ github.run_number }}
+          name: Floaty Volume v1.5.2.${{ github.run_number }}
           body: |
             Lightweight floating volume control for OPPO A3s / Android 8+.
 
             - Works on Android 8.0 (API 26) and newer; built for Android 9 (API 28).
             - R8-optimised release build: no dependencies, no background work.
 
-            v1.5.1:
-            - Widget: progress bars now scaled to each stream's real maximum
-              (they no longer overflow / misrepresent the fill).
-            - Widget: live-syncs with the floating panel in real time while
-              you drag a slider (no more "only updates after a tap").
-            - Widget: power button moved next to the "Volume" title, and the
-              − / + buttons now sit at the two ends of each progress bar.
-            - Floating panel: sliders now reliably respond to touch (window
-              is forced back on top when it opens).
+            v1.5.2:
+            - Floating panel: sliders no longer snap back — writes are now
+              verified with a relative-adjust fallback (same robust path the
+              +/− buttons already used), so guarded streams (e.g. media with
+              Do-Not-Disturb on) work from the slider too.
+            - Widget: now also updates when you use the floating panel's
+              +/− buttons (not just the sliders).
+            - Widget layout: rows spread evenly across the full height (no
+              more dead space at the bottom), wider labels (Ringtone no
+              longer wraps), and bigger +/− buttons.
 
 
             Install: enable "Install unknown apps" for your file manager, open the APK,
