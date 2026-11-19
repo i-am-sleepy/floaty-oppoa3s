@@ -146,10 +146,8 @@ class FloatyService : Service() {
     private fun togglePanel() {
         val current = panel
         if (current != null && current.isOpen) {
+            // Panel closed: onDismissed() has already sent the bubble home.
             current.hide()
-            // Panel closed: clear the dock and send the bubble home.
-            bubble?.openDock = null
-            bubble?.restoreFromDock()
             return
         }
         // Reuse the existing panel object: its views are already inflated.
@@ -157,7 +155,8 @@ class FloatyService : Service() {
             context = this,
             windowManager = windowManager,
             volume = volume,
-            onTerminate = { stopEverything() }
+            onTerminate = { stopEverything() },
+            onDismissed = { restoreBubbleHome() }
         ).also { panel = it }
         p.show()
 
@@ -186,14 +185,24 @@ class FloatyService : Service() {
         return Point(x, y)
     }
 
+    /**
+     * Sends the bubble back to the position it had before the panel was
+     * opened. Called on every close path (outside tap, close button, tap on
+     * the bubble, drag while docked) — safe to call when nothing is docked.
+     */
+    private fun restoreBubbleHome() {
+        bubble?.openDock = null
+        bubble?.restoreFromDock()
+    }
+
     private fun repositionPanel() {
         // The bubble moved: if the panel is still open (e.g. the bubble was
-        // dragged while docked), close it and clear the dock so the bubble
-        // behaves like a normal draggable bubble again.
+        // dragged while docked), close it. The bubble keeps its new position
+        // (abandonDock() inside the bubble), so restoreBubbleHome() below is
+        // a no-op for the position.
         val open = panel ?: return
         if (open.isOpen) {
             open.hide()
-            bubble?.openDock = null
         }
     }
 

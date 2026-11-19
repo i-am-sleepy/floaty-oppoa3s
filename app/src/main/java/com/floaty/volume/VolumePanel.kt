@@ -28,7 +28,8 @@ class VolumePanel(
     private val context: Context,
     private val windowManager: WindowManager,
     private val volume: VolumeController,
-    private val onTerminate: () -> Unit
+    private val onTerminate: () -> Unit,
+    private val onDismissed: () -> Unit
 ) {
 
     /** Inflated once, then re-attached on every open. */
@@ -116,6 +117,10 @@ class VolumePanel(
             }
         }
         attached = false
+        // Tell the service so it can send the bubble back to its pre-tap spot
+        // (covers the outside-tap and close-button paths, which never go
+        // through the service).
+        onDismissed()
     }
 
     /** Re-reads every stream from AudioManager and repaints the sliders. */

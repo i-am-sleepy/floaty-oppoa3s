@@ -124,6 +124,19 @@ class BubbleOverlay(
     }
 
     /**
+     * Abandons the dock without restoring: used when the user drags the
+     * bubble while it is docked. The bubble stays where it was dropped and
+     * the panel closes; [restoreFromDock] must not snap it back afterwards.
+     */
+    private fun abandonDock() {
+        if (docked) {
+            docked = false
+            dockSavedX = -1
+            dockSavedY = -1
+        }
+    }
+
+    /**
      * Applies the bubble opacity (0..100) live. View alpha is composited on the
      * same surface, so this costs no window transactions and no extra frames.
      */
@@ -209,10 +222,14 @@ class BubbleOverlay(
                             // nulled openDock, so the bubble goes home.
                             if (openDock == null) restoreFromDock()
                         } else {
-                            // Snap back inside the screen and commit the position
-                            // immediately (no coalescing: this is the final frame).
+                            // Dragged: keep the bubble where it was dropped.
+                            // Abandon the dock so closing the panel does not
+                            // snap the bubble back to its pre-dock spot.
+                            abandonDock()
+                            // Snap back inside the screen and commit the
+                            // position immediately (no coalescing: final frame).
                             // If the panel was open, the service closes it via
-                            // onPositionChanged and clears the dock.
+                            // onPositionChanged.
                             flushUpdate(v, lp)
                             prefs.bubbleX = lp.x
                             prefs.bubbleY = lp.y
@@ -222,6 +239,7 @@ class BubbleOverlay(
                     }
 
                     MotionEvent.ACTION_CANCEL -> {
+                        abandonDock()
                         flushUpdate(v, lp)
                         prefs.bubbleX = lp.x
                         prefs.bubbleY = lp.y
