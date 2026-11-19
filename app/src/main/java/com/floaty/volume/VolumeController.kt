@@ -24,7 +24,8 @@ class VolumeController(context: Context) {
         AudioManager.STREAM_MUSIC,
         AudioManager.STREAM_RING,
         AudioManager.STREAM_ALARM,
-        AudioManager.STREAM_SYSTEM
+        AudioManager.STREAM_SYSTEM,
+        AudioManager.STREAM_VOICE_CALL
     )
 
     // Cached because getStreamMaxVolume/getStreamMinVolume are IPC and constant.

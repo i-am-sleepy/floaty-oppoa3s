@@ -2,7 +2,9 @@ package com.floaty.volume
 
 import android.annotation.SuppressLint
 import android.content.Context
+import android.graphics.Color
 import android.graphics.PixelFormat
+import android.graphics.drawable.GradientDrawable
 import android.media.AudioManager
 import android.os.SystemClock
 import android.view.Gravity
@@ -44,16 +46,19 @@ class VolumePanel(
     private var seekRing: SeekBar? = null
     private var seekAlarm: SeekBar? = null
     private var seekSystem: SeekBar? = null
+    private var seekCall: SeekBar? = null
 
     private var valMedia: TextView? = null
     private var valRing: TextView? = null
     private var valAlarm: TextView? = null
     private var valSystem: TextView? = null
+    private var valCall: TextView? = null
 
     private var rowMedia: View? = null
     private var rowRing: View? = null
     private var rowAlarm: View? = null
     private var rowSystem: View? = null
+    private var rowCall: View? = null
 
     /** Guards against feedback loops while we programmatically set progress. */
     private var updating = false
@@ -64,7 +69,7 @@ class VolumePanel(
     /** Throttle timestamp for slider writes (one AudioManager call per frame max). */
     private var lastWriteAt = 0L
 
-    private val selectedColor by lazy { context.getColor(R.color.row_selected) }
+    private val selectedColor by lazy { context.getColor(R.color.row_selected_on_dark) }
 
     val isOpen: Boolean
         get() = attached
@@ -72,6 +77,33 @@ class VolumePanel(
     /** The card view (used by the service to dock the bubble above it). */
     val cardView: View?
         get() = card
+
+    /**
+     * Panel background opacity in percent (0..100). Only the card background
+     * is affected — text, sliders and buttons stay fully opaque. Applied
+     * immediately to the card if it is showing (cheap: one color change).
+     */
+    var panelOpacity: Int = 80
+        set(value) {
+            val clamped = value.coerceIn(0, 100)
+            if (clamped == field) return
+            field = clamped
+            applyCardBackground()
+        }
+
+    private fun applyCardBackground() {
+        val c = card ?: return
+        // Fresh rounded shape with the current alpha; the layout's drawable is
+        // only the initial fallback. This runs once per opacity change, not
+        // per frame.
+        val alpha = (255 * panelOpacity / 100)
+        c.background = GradientDrawable().apply {
+            shape = GradientDrawable.RECTANGLE
+            cornerRadius = dp(18).toFloat()
+            setColor(Color.argb(alpha, 0, 0, 0))
+            setStroke(dp(1), Color.argb(0x22, 255, 255, 255))
+        }
+    }
 
     @SuppressLint("ClickableViewAccessibility", "InflateParams", "SetTextI18n")
     fun show() {
@@ -82,6 +114,9 @@ class VolumePanel(
 
         val view = content ?: buildContent()
         content = view
+        // Make sure the card reflects the saved opacity (the setter is a
+        // no-op until the card view exists).
+        applyCardBackground()
 
         val lp = WindowManager.LayoutParams(
             WindowManager.LayoutParams.MATCH_PARENT,
@@ -131,6 +166,7 @@ class VolumePanel(
         val ring = volume.current(AudioManager.STREAM_RING)
         val alarm = volume.current(AudioManager.STREAM_ALARM)
         val system = volume.current(AudioManager.STREAM_SYSTEM)
+        val call = volume.current(AudioManager.STREAM_VOICE_CALL)
 
         updating = true
         seekMedia?.let {
@@ -149,12 +185,17 @@ class VolumePanel(
             it.max = volume.max(AudioManager.STREAM_SYSTEM)
             it.progress = system
         }
+        seekCall?.let {
+            it.max = volume.max(AudioManager.STREAM_VOICE_CALL)
+            it.progress = call
+        }
         updating = false
 
         setText(valMedia, media)
         setText(valRing, ring)
         setText(valAlarm, alarm)
         setText(valSystem, system)
+        setText(valCall, call)
 
         highlightTarget()
         updateTargetLabels()
@@ -171,16 +212,19 @@ class VolumePanel(
         seekRing = view.findViewById(R.id.seekRing)
         seekAlarm = view.findViewById(R.id.seekAlarm)
         seekSystem = view.findViewById(R.id.seekSystem)
+        seekCall = view.findViewById(R.id.seekCall)
 
         valMedia = view.findViewById(R.id.valMedia)
         valRing = view.findViewById(R.id.valRing)
         valAlarm = view.findViewById(R.id.valAlarm)
         valSystem = view.findViewById(R.id.valSystem)
+        valCall = view.findViewById(R.id.valCall)
 
         rowMedia = view.findViewById(R.id.rowMedia)
         rowRing = view.findViewById(R.id.rowRing)
         rowAlarm = view.findViewById(R.id.rowAlarm)
         rowSystem = view.findViewById(R.id.rowSystem)
+        rowCall = view.findViewById(R.id.rowCall)
 
         view.findViewById<View>(R.id.btnClose).setOnClickListener { hide() }
 
@@ -214,6 +258,7 @@ class VolumePanel(
         attachSeekBar(seekRing, AudioManager.STREAM_RING, valRing)
         attachSeekBar(seekAlarm, AudioManager.STREAM_ALARM, valAlarm)
         attachSeekBar(seekSystem, AudioManager.STREAM_SYSTEM, valSystem)
+        attachSeekBar(seekCall, AudioManager.STREAM_VOICE_CALL, valCall)
     }
 
     private fun attachSeekBar(bar: SeekBar?, stream: Int, label: TextView?) {
@@ -260,6 +305,7 @@ class VolumePanel(
         rowRing?.setOnClickListener { selectStream(AudioManager.STREAM_RING) }
         rowAlarm?.setOnClickListener { selectStream(AudioManager.STREAM_ALARM) }
         rowSystem?.setOnClickListener { selectStream(AudioManager.STREAM_SYSTEM) }
+        rowCall?.setOnClickListener { selectStream(AudioManager.STREAM_VOICE_CALL) }
     }
 
     private fun selectStream(stream: Int) {
@@ -277,6 +323,7 @@ class VolumePanel(
         rowRing?.setBackgroundColor(if (stream == AudioManager.STREAM_RING) selectedColor else 0)
         rowAlarm?.setBackgroundColor(if (stream == AudioManager.STREAM_ALARM) selectedColor else 0)
         rowSystem?.setBackgroundColor(if (stream == AudioManager.STREAM_SYSTEM) selectedColor else 0)
+        rowCall?.setBackgroundColor(if (stream == AudioManager.STREAM_VOICE_CALL) selectedColor else 0)
     }
 
     private fun setText(view: TextView?, value: Int) {
@@ -291,6 +338,7 @@ class VolumePanel(
             AudioManager.STREAM_MUSIC -> context.getString(R.string.stream_media)
             AudioManager.STREAM_RING -> context.getString(R.string.stream_ring)
             AudioManager.STREAM_ALARM -> context.getString(R.string.stream_alarm)
+            AudioManager.STREAM_VOICE_CALL -> context.getString(R.string.stream_call)
             else -> context.getString(R.string.stream_system)
         }
         val value = if (knownValue >= 0) knownValue else volume.current(stream)

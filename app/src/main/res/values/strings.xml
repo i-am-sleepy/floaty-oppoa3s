@@ -20,6 +20,15 @@
     <string name="opacity_body">Make the bubble more or less transparent. Changes apply immediately and are remembered.</string>
     <string name="opacity_label">Bubble opacity</string>
 
+    <string name="panel_opacity_title">4. Panel transparency</string>
+    <string name="panel_opacity_body">How opaque the black volume panel is. Text, sliders and buttons stay fully opaque; only the panel background changes.</string>
+    <string name="panel_opacity_label">Panel opacity</string>
+
+    <string name="autostart_title">5. Autostart after reboot</string>
+    <string name="autostart_body">The bubble restarts itself after a reboot or an app update. If it does not, open the ColorOS autostart switch below and also lock this app in recents (swipe up → app info → \"Don\'t optimize\").</string>
+    <string name="autostart_button">Open autostart settings</string>
+    <string name="autostart_unavailable">Open Settings → Apps → Autostart manually and enable Floaty Volume.</string>
+
     <string name="notification_channel">Floaty Volume</string>
     <string name="notification_title">Floaty Volume is running</string>
     <string name="notification_text">Tap the bubble to change volume</string>
@@ -33,6 +42,7 @@
     <string name="stream_ring">Ringtone</string>
     <string name="stream_alarm">Alarm</string>
     <string name="stream_system">System</string>
+    <string name="stream_call">Call</string>
 
     <string name="toast_permission_needed">Grant \"Display over other apps\" first</string>
     <string name="toast_started">Floating bubble started</string>

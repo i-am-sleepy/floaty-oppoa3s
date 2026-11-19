@@ -39,18 +39,29 @@ class FloatyService : Service() {
         windowManager = getSystemService(Context.WINDOW_SERVICE) as WindowManager
         prefs = Prefs(this)
         volume = VolumeController(this)
-        // Live opacity changes from the app screen (same-package broadcast).
+        // Live opacity changes from the app screen (same-package broadcasts).
         try {
-            registerReceiver(opacityReceiver, IntentFilter(ACTION_OPACITY))
+            registerReceiver(
+                opacityReceiver,
+                IntentFilter(ACTION_OPACITY).apply { addAction(ACTION_PANEL_OPACITY) }
+            )
         } catch (ignored: Exception) {
-            // Receiver registration is best-effort; the slider still persists.
+            // Receiver registration is best-effort; the sliders still persist.
         }
     }
 
     private val opacityReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
-            val op = intent?.getIntExtra(EXTRA_OPACITY, -1) ?: -1
-            if (op in 0..100) bubble?.setOpacity(op)
+            when (intent?.action) {
+                ACTION_OPACITY -> {
+                    val op = intent.getIntExtra(EXTRA_OPACITY, -1)
+                    if (op in 0..100) bubble?.setOpacity(op)
+                }
+                ACTION_PANEL_OPACITY -> {
+                    val op = intent.getIntExtra(EXTRA_PANEL_OPACITY, -1)
+                    if (op in 0..100) panel?.panelOpacity = op
+                }
+            }
         }
     }
 
@@ -157,7 +168,10 @@ class FloatyService : Service() {
             volume = volume,
             onTerminate = { stopEverything() },
             onDismissed = { restoreBubbleHome() }
-        ).also { panel = it }
+        ).also {
+            it.panelOpacity = prefs.panelOpacity
+            panel = it
+        }
         p.show()
 
         // Dock the bubble just above the card, centered like the card.
@@ -249,7 +263,9 @@ class FloatyService : Service() {
         const val ACTION_START = "com.floaty.volume.action.START"
         const val ACTION_STOP = "com.floaty.volume.action.STOP"
         const val ACTION_OPACITY = "com.floaty.volume.action.OPACITY"
+        const val ACTION_PANEL_OPACITY = "com.floaty.volume.action.PANEL_OPACITY"
         const val EXTRA_OPACITY = "opacity"
+        const val EXTRA_PANEL_OPACITY = "panel_opacity"
         private const val CHANNEL_ID = "floaty_volume_channel"
         private const val NOTIFICATION_ID = 1001
 

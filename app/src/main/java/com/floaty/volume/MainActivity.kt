@@ -15,8 +15,11 @@ class MainActivity : Activity() {
 
     private lateinit var btnPermission: Button
     private lateinit var btnToggle: Button
+    private lateinit var btnAutostart: Button
     private lateinit var seekOpacity: SeekBar
     private lateinit var opacityValue: TextView
+    private lateinit var seekPanelOpacity: SeekBar
+    private lateinit var panelOpacityValue: TextView
     private lateinit var prefs: Prefs
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -26,8 +29,11 @@ class MainActivity : Activity() {
 
         btnPermission = findViewById(R.id.btnPermission)
         btnToggle = findViewById(R.id.btnToggle)
+        btnAutostart = findViewById(R.id.btnAutostart)
         seekOpacity = findViewById(R.id.seekOpacity)
         opacityValue = findViewById(R.id.opacityValue)
+        seekPanelOpacity = findViewById(R.id.seekPanelOpacity)
+        panelOpacityValue = findViewById(R.id.panelOpacityValue)
 
         btnPermission.setOnClickListener {
             if (Settings.canDrawOverlays(this)) {
@@ -71,11 +77,59 @@ class MainActivity : Activity() {
             override fun onStartTrackingTouch(seekBar: SeekBar) {}
             override fun onStopTrackingTouch(seekBar: SeekBar) {}
         })
+        // Panel transparency: saved to prefs and applied live to the open
+        // panel via a same-package broadcast (the service owns the window).
+        seekPanelOpacity.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(seekBar: SeekBar, progress: Int, fromUser: Boolean) {
+                if (!fromUser) return
+                prefs.panelOpacity = progress
+                panelOpacityValue.text = "$progress%"
+                val intent = Intent(FloatyService.ACTION_PANEL_OPACITY).setPackage(packageName)
+                intent.putExtra(FloatyService.EXTRA_PANEL_OPACITY, progress)
+                sendBroadcast(intent)
+            }
+
+            override fun onStartTrackingTouch(seekBar: SeekBar) {}
+            override fun onStopTrackingTouch(seekBar: SeekBar) {}
+        })
+
+        // Autostart after reboot: there is no public API for this, so we open
+        // the ROM's autostart page (ColorOS/MIUI/etc.) when available.
+        btnAutostart.setOnClickListener { openAutostartSettings() }
     }
 
     override fun onResume() {
         super.onResume()
         updateUi()
+    }
+
+    private fun openAutostartSettings() {
+        val candidates = listOf(
+            Intent("com.coloros.settings.AUTOSTART_MANAGER"),
+            Intent("com.miui.securitycenter.AUTOSTART_MANAGER"),
+            Intent("com.android.settings.AUTOSTART_SETTINGS"),
+            Intent("com.vivo.settings.AUTOSTART_MANAGER")
+        )
+        for (intent in candidates) {
+            try {
+                startActivity(intent)
+                return
+            } catch (ignored: Exception) {
+                // Not available on this ROM; try the next one.
+            }
+        }
+        // Fallback: the app details page, which on most ROMs links to the
+        // autostart / battery options.
+        try {
+            startActivity(
+                Intent(
+                    Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                    Uri.parse("package:$packageName")
+                )
+            )
+        } catch (ignored: Exception) {
+            Toast.makeText(this, R.string.autostart_unavailable, Toast.LENGTH_LONG).show()
+        }
     }
 
     private fun openOverlaySettings() {
@@ -104,5 +158,9 @@ class MainActivity : Activity() {
         val opacity = prefs.bubbleOpacity
         seekOpacity.progress = opacity
         opacityValue.text = "$opacity%"
+
+        val panelOpacity = prefs.panelOpacity
+        seekPanelOpacity.progress = panelOpacity
+        panelOpacityValue.text = "$panelOpacity%"
     }
 }
