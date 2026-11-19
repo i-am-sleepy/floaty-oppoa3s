@@ -9,7 +9,6 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
-import android.graphics.Point
 import android.os.Build
 import android.os.IBinder
 import android.provider.Settings
@@ -23,6 +22,10 @@ import android.view.WindowManager
  * It only reacts to touch events, so idle cost is effectively zero. The panel
  * object is kept between opens so its view hierarchy is inflated once, and the
  * notification is built once and reused.
+ *
+ * While the panel is open the bubble window is removed entirely (one cheap
+ * transaction each way) and re-shown in its persisted position when the panel
+ * closes — the position is saved in Prefs on every move.
  */
 class FloatyService : Service() {
 
@@ -146,8 +149,7 @@ class FloatyService : Service() {
             context = this,
             windowManager = windowManager,
             prefs = prefs,
-            onTap = { togglePanel() },
-            onPositionChanged = { repositionPanel() }
+            onTap = { togglePanel() }
         )
         b.show()
         b.setOpacity(prefs.bubbleOpacity)
@@ -157,67 +159,26 @@ class FloatyService : Service() {
     private fun togglePanel() {
         val current = panel
         if (current != null && current.isOpen) {
-            // Panel closed: onDismissed() has already sent the bubble home.
             current.hide()
+            // Panel closed: the bubble re-appears in its persisted position.
+            showBubble()
             return
         }
+        // Panel opening: hide the bubble window for the whole session.
+        bubble?.hide()
+
         // Reuse the existing panel object: its views are already inflated.
         val p = current ?: VolumePanel(
             context = this,
             windowManager = windowManager,
             volume = volume,
             onTerminate = { stopEverything() },
-            onDismissed = { restoreBubbleHome() }
+            onDismissed = { showBubble() }
         ).also {
             it.panelOpacity = prefs.panelOpacity
             panel = it
         }
         p.show()
-
-        // Dock the bubble just above the card, centered like the card.
-        bubble?.openDock = { center -> dockPoint(center) }
-        // The panel scrim is added after the bubble window, so the bubble must
-        // be re-inserted on top, then moved to its dock spot once the card
-        // has a real laid-out position.
-        p.cardView?.post {
-            bubble?.bringToFront()
-            bubble?.dockNow()
-        }
-    }
-
-    /**
-     * Dock point for the bubble while the panel is open: horizontally centered
-     * (like the card) and just above the card's top edge.
-     */
-    private fun dockPoint(center: Point): Point {
-        val card = panel?.cardView ?: return center
-        val metrics = resources.displayMetrics
-        val size = (40 * metrics.density).toInt()
-        val gap = (8 * metrics.density).toInt()
-        val x = ((metrics.widthPixels - size) / 2).coerceAtLeast(0)
-        val y = (card.top - gap - size).coerceAtLeast(0)
-        return Point(x, y)
-    }
-
-    /**
-     * Sends the bubble back to the position it had before the panel was
-     * opened. Called on every close path (outside tap, close button, tap on
-     * the bubble, drag while docked) — safe to call when nothing is docked.
-     */
-    private fun restoreBubbleHome() {
-        bubble?.openDock = null
-        bubble?.restoreFromDock()
-    }
-
-    private fun repositionPanel() {
-        // The bubble moved: if the panel is still open (e.g. the bubble was
-        // dragged while docked), close it. The bubble keeps its new position
-        // (abandonDock() inside the bubble), so restoreBubbleHome() below is
-        // a no-op for the position.
-        val open = panel ?: return
-        if (open.isOpen) {
-            open.hide()
-        }
     }
 
     private fun stopEverything() {

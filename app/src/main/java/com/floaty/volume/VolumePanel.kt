@@ -74,10 +74,6 @@ class VolumePanel(
     val isOpen: Boolean
         get() = attached
 
-    /** The card view (used by the service to dock the bubble above it). */
-    val cardView: View?
-        get() = card
-
     /**
      * Panel background opacity in percent (0..100). Only the card background
      * is affected — text, sliders and buttons stay fully opaque. Applied
@@ -347,7 +343,7 @@ class VolumePanel(
 
     /**
      * Places the card centered horizontally with its top at 20% of the screen
-     * height; the bubble docks just above the card while the panel is open.
+     * height.
      */
     private fun positionCard() {
         val c = card ?: return
