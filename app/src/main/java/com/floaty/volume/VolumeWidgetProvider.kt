@@ -145,11 +145,11 @@ class VolumeWidgetProvider : AppWidgetProvider() {
 
     /** Sets all five progress bars from the current streams. */
     private fun paintStreams(views: RemoteViews, volume: VolumeController) {
-        views.setProgressBarInt(R.id.wbarMedia, android.R.id.progress, volume.current(AudioManager.STREAM_MUSIC))
-        views.setProgressBarInt(R.id.wbarRing, android.R.id.progress, volume.current(AudioManager.STREAM_RING))
-        views.setProgressBarInt(R.id.wbarAlarm, android.R.id.progress, volume.current(AudioManager.STREAM_ALARM))
-        views.setProgressBarInt(R.id.wbarSystem, android.R.id.progress, volume.current(AudioManager.STREAM_SYSTEM))
-        views.setProgressBarInt(R.id.wbarCall, android.R.id.progress, volume.current(AudioManager.STREAM_VOICE_CALL))
+        views.setInt(R.id.wbarMedia, "setProgress", volume.current(AudioManager.STREAM_MUSIC))
+        views.setInt(R.id.wbarRing, "setProgress", volume.current(AudioManager.STREAM_RING))
+        views.setInt(R.id.wbarAlarm, "setProgress", volume.current(AudioManager.STREAM_ALARM))
+        views.setInt(R.id.wbarSystem, "setProgress", volume.current(AudioManager.STREAM_SYSTEM))
+        views.setInt(R.id.wbarCall, "setProgress", volume.current(AudioManager.STREAM_VOICE_CALL))
     }
 
     companion object {
@@ -159,7 +159,7 @@ class VolumeWidgetProvider : AppWidgetProvider() {
         const val EXTRA_STREAM = "stream"
         const val EXTRA_DELTA = "delta"
 
-        private val componentName(context: Context) =
+        private fun componentName(context: Context) =
             ComponentName(context, VolumeWidgetProvider::class.java)
 
         /** Maps a (stream, direction) pair to the matching − / + view id. */
