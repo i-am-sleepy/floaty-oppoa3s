@@ -75,23 +75,18 @@ jobs:
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v1.4.${{ github.run_number }}
-          name: Floaty Volume v1.4.${{ github.run_number }}
+          tag_name: v1.4.1.${{ github.run_number }}
+          name: Floaty Volume v1.4.1.${{ github.run_number }}
           body: |
             Lightweight floating volume control for OPPO A3s / Android 8+.
 
             - Works on Android 8.0 (API 26) and newer; built for Android 9 (API 28).
             - R8-optimised release build: no dependencies, no background work.
 
-            v1.4:
-            - Call (voice-call) volume row added to the panel.
-            - Semi-transparent black panel with white text; new "Panel
-              transparency" slider (only the background changes — text,
-              sliders and buttons stay fully opaque).
-            - "Autostart after reboot" section with a button that opens the
-              ROM's autostart page (ColorOS / MIUI / etc.).
-            - Autostart after reboot + after app update is already wired via
-              the boot receiver.
+            v1.4.1:
+            - +/− step buttons are now outlined white circles (transparent
+              fill, panel background shows through) with white +/− signs.
+
 
             Install: enable "Install unknown apps" for your file manager, open the APK,
             then grant "Display over other apps" and tap "Start floating bubble".
