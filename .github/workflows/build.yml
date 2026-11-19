@@ -75,18 +75,23 @@ jobs:
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v1.4.3.${{ github.run_number }}
-          name: Floaty Volume v1.4.3.${{ github.run_number }}
+          tag_name: v1.5.${{ github.run_number }}
+          name: Floaty Volume v1.5.${{ github.run_number }}
           body: |
             Lightweight floating volume control for OPPO A3s / Android 8+.
 
             - Works on Android 8.0 (API 26) and newer; built for Android 9 (API 28).
             - R8-optimised release build: no dependencies, no background work.
 
-            v1.4.3:
-            - The bubble now hides completely while the volume panel is open
-              and re-appears in its exact previous position when the panel
-              closes (dock/restore machinery removed — simpler and faster).
+            v1.5:
+            - New home-screen volume widget: lives in the launcher's process,
+              so it survives an app kill. Tap its title to bring the bubble
+              back; use its − / + buttons to adjust Media, Ringtone, Alarm,
+              System and Call directly.
+            - The widget and the bubble panel read/write the same system
+              streams and are kept in sync via the volume-changed broadcast.
+            - New "Keep it alive" section: lock the app in Recents so the
+              bubble can't be swiped away.
 
 
             Install: enable "Install unknown apps" for your file manager, open the APK,

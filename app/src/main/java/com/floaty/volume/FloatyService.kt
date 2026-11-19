@@ -42,11 +42,17 @@ class FloatyService : Service() {
         windowManager = getSystemService(Context.WINDOW_SERVICE) as WindowManager
         prefs = Prefs(this)
         volume = VolumeController(this)
-        // Live opacity changes from the app screen (same-package broadcasts).
+        // Live opacity changes from the app screen (same-package broadcasts)
+        // plus the system volume-changed broadcast, which keeps the home-screen
+        // widget in sync with the bubble panel no matter where a change comes
+        // from (panel, widget, hardware keys, system overlay).
         try {
             registerReceiver(
                 opacityReceiver,
-                IntentFilter(ACTION_OPACITY).apply { addAction(ACTION_PANEL_OPACITY) }
+                IntentFilter(ACTION_OPACITY).apply {
+                    addAction(ACTION_PANEL_OPACITY)
+                    addAction("android.intent.action.VOLUME_CHANGED")
+                }
             )
         } catch (ignored: Exception) {
             // Receiver registration is best-effort; the sliders still persist.
@@ -64,9 +70,23 @@ class FloatyService : Service() {
                     val op = intent.getIntExtra(EXTRA_PANEL_OPACITY, -1)
                     if (op in 0..100) panel?.panelOpacity = op
                 }
+                "android.intent.action.VOLUME_CHANGED" -> {
+                    // Any volume change anywhere: keep the widget in sync.
+                    // Throttled, and skipped while this panel's own slider is
+                    // being dragged (the panel repaints itself; the widget
+                    // catches up on the next change / release).
+                    val now = android.os.SystemClock.uptimeMillis()
+                    if (now - lastWidgetSyncAt >= 150L && panel?.isTracking != true) {
+                        lastWidgetSyncAt = now
+                        VolumeWidgetProvider.refreshAll(this@FloatyService)
+                    }
+                }
             }
         }
     }
+
+    /** Throttle timestamp for widget redraws from volume broadcasts. */
+    private var lastWidgetSyncAt = 0L
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {

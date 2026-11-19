@@ -25,9 +25,13 @@
     <string name="panel_opacity_label">Panel opacity</string>
 
     <string name="autostart_title">5. Autostart after reboot</string>
-    <string name="autostart_body">The bubble restarts itself after a reboot or an app update. If it does not, open the ColorOS autostart switch below and also lock this app in recents (swipe up → app info → \"Don\'t optimize\").</string>
+    <string name="autostart_body">The bubble restarts itself after a reboot or an app update. If it does not, open the ColorOS autostart switch below.</string>
     <string name="autostart_button">Open autostart settings</string>
     <string name="autostart_unavailable">Open Settings → Apps → Autostart manually and enable Floaty Volume.</string>
+
+    <string name="alive_title">6. Keep it alive</string>
+    <string name="alive_body">Android lets you close apps from the Recents screen, and no app can stop that. Two ways to keep the bubble up:\n\n• Lock it in Recents: swipe up, long-press the Floaty Volume card, tap Lock. It can no longer be swiped away.\n\n• Add the home-screen widget: it lives in the launcher, so it survives an app kill. Tap its title to bring the bubble back, or use its − / + buttons to change volume directly.</string>
+    <string name="widget_description">Volume panel that survives app kills. Tap the title to start the bubble; use − / + to adjust each stream.</string>
 
     <string name="notification_channel">Floaty Volume</string>
     <string name="notification_title">Floaty Volume is running</string>

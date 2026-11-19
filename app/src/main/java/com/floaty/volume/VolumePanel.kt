@@ -63,6 +63,10 @@ class VolumePanel(
     /** Guards against feedback loops while we programmatically set progress. */
     private var updating = false
 
+    /** True while the user is actively dragging a slider in this panel. */
+    var isTracking = false
+        private set
+
     /** Stream currently painted as selected, so we only repaint on change. */
     private var highlighted = Int.MIN_VALUE
 
@@ -275,12 +279,14 @@ class VolumePanel(
             }
 
             override fun onStartTrackingTouch(seekBar: SeekBar) {
+                isTracking = true
                 volume.targetStream = stream
                 highlightTarget()
                 updateTargetLabels()
             }
 
             override fun onStopTrackingTouch(seekBar: SeekBar) {
+                isTracking = false
                 // Commit the final value, then reconcile with what the system took.
                 volume.setFast(stream, seekBar.progress)
                 lastWriteAt = 0L

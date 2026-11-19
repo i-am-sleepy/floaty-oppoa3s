@@ -48,6 +48,19 @@
             </intent-filter>
         </receiver>
 
+        <!-- Home-screen volume widget: survives an app kill (launcher process).
+             Must be exported so the launcher can bind to it. -->
+        <receiver
+            android:name=".VolumeWidgetProvider"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_volume_info" />
+        </receiver>
+
     </application>
 
 </manifest>
