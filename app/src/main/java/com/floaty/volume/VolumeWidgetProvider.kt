@@ -87,7 +87,7 @@ class VolumeWidgetProvider : AppWidgetProvider() {
     }
 
     /** Drop the cached PendingIntents when a widget instance is removed. */
-    override fun onRemoved(context: Context, appWidgetIds: IntArray) {
+    override fun onDeleted(context: Context, appWidgetIds: IntArray) {
         for (id in appWidgetIds) piCache.remove(id)
     }
 
