@@ -136,6 +136,17 @@ class VolumePanel(
         }
         attached = true
 
+        // The bubble window was just removed, so on some ROMs the new window
+        // can end up behind other overlays and lose touches (buttons still
+        // work because their targets are small and precise, but the slider
+        // area can swallow gestures). A no-op layout update re-inserts the
+        // window on top — one cheap transaction.
+        try {
+            windowManager.updateViewLayout(view, lp)
+        } catch (ignored: Exception) {
+            // Already on top.
+        }
+
         positionCard()
         // Re-position once the card has a real measured height.
         view.post { positionCard() }
@@ -298,6 +309,9 @@ class VolumePanel(
                 }
                 setText(label, actual)
                 if (volume.targetStream == stream) updateTargetLabels(actual)
+                // Guarantee the widget shows the final value even if the last
+                // VOLUME_CHANGED broadcast landed inside the throttle window.
+                VolumeWidgetProvider.refreshAll(context)
             }
         })
     }

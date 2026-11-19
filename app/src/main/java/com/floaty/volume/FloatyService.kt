@@ -71,12 +71,11 @@ class FloatyService : Service() {
                     if (op in 0..100) panel?.panelOpacity = op
                 }
                 "android.intent.action.VOLUME_CHANGED" -> {
-                    // Any volume change anywhere: keep the widget in sync.
-                    // Throttled, and skipped while this panel's own slider is
-                    // being dragged (the panel repaints itself; the widget
-                    // catches up on the next change / release).
+                    // Any volume change anywhere: keep the widget in sync,
+                    // including while a panel slider is being dragged
+                    // (throttled to ~7 redraws/sec so it stays cheap).
                     val now = android.os.SystemClock.uptimeMillis()
-                    if (now - lastWidgetSyncAt >= 150L && panel?.isTracking != true) {
+                    if (now - lastWidgetSyncAt >= 150L) {
                         lastWidgetSyncAt = now
                         VolumeWidgetProvider.refreshAll(this@FloatyService)
                     }

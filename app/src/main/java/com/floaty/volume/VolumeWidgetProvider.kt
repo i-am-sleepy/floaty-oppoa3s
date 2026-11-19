@@ -145,6 +145,14 @@ class VolumeWidgetProvider : AppWidgetProvider() {
 
     /** Sets all five progress bars from the current streams. */
     private fun paintStreams(views: RemoteViews, volume: VolumeController) {
+        // Scale each bar to the stream's real maximum (7–15 on most phones,
+        // not the 100 the layout declares) so the fill is accurate.
+        views.setInt(R.id.wbarMedia, "setMax", volume.max(AudioManager.STREAM_MUSIC))
+        views.setInt(R.id.wbarRing, "setMax", volume.max(AudioManager.STREAM_RING))
+        views.setInt(R.id.wbarAlarm, "setMax", volume.max(AudioManager.STREAM_ALARM))
+        views.setInt(R.id.wbarSystem, "setMax", volume.max(AudioManager.STREAM_SYSTEM))
+        views.setInt(R.id.wbarCall, "setMax", volume.max(AudioManager.STREAM_VOICE_CALL))
+
         views.setInt(R.id.wbarMedia, "setProgress", volume.current(AudioManager.STREAM_MUSIC))
         views.setInt(R.id.wbarRing, "setProgress", volume.current(AudioManager.STREAM_RING))
         views.setInt(R.id.wbarAlarm, "setProgress", volume.current(AudioManager.STREAM_ALARM))
