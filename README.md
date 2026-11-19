@@ -9,12 +9,18 @@ No root, no Accessibility Service, no internet permission — just a bubble and
 
 ## What it does
 
-- A 56 dp draggable bubble floats above other apps.
+- A small draggable bubble floats above other apps.
 - Tap it → a compact panel opens with **+ / −** step buttons.
-- Sliders for **Media, Ringtone, Alarm, System** streams (real system streams).
-- Tap outside the panel (or ✕) to close it.
+- Sliders for **Media, Ringtone, Alarm, System, Call** streams (real system streams).
+- Tap outside the panel (or ✕) to close it; the bubble re-appears in place.
 - Runs in a foreground service (low-importance notification, "Stop" action).
+- **Home-screen widget**: a full volume panel that lives in the launcher's
+  process, so it survives an app kill. Tap its title to bring the bubble back;
+  use its − / + buttons to adjust each stream. It stays in sync with the panel
+  via the system volume-changed broadcast.
 - Bubble position is remembered; it restarts after reboot if it was running.
+- "Keep it alive" guidance: lock the app in Recents so the bubble can't be
+  swiped away.
 
 ## Install
 
@@ -68,7 +74,9 @@ app/src/main/
     OverlayWindows.kt    version-aware overlay window type
     Prefs.kt             bubble position + running flag
     BootReceiver.kt      restart after reboot/update
-  res/layout/            activity_main, overlay_bubble, overlay_panel
+    VolumeWidgetProvider.kt  home-screen widget (survives app kill)
+  res/layout/            activity_main, overlay_bubble, overlay_panel, widget_volume
+  res/xml/               widget_volume_info (widget metadata)
 ```
 
 ## License
